@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cincinnati City Council — Legislative Record</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#ffffff;
+  --bg2:#f7f6f3;
+  --bg3:#f0efe9;
+  --text:#1a1a18;
+  --text2:#5a5a55;
+  --text3:#9a9a92;
+  --border:#e0dfd8;
+  --border2:#c8c7be;
+  --blue-bg:#e8f0fb;
+  --blue-text:#1a4a8a;
+  --green-bg:#e6f4ec;
+  --green-text:#1a5c35;
+  --red-bg:#fceaea;
+  --red-text:#8a1a1a;
+  --amber-bg:#fef3e2;
+  --amber-text:#7a4a0a;
+  --accent:#2255cc;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1c1c1a;
+    --bg2:#242422;
+    --bg3:#2c2c28;
+    --text:#f0efe8;
+    --text2:#a0a098;
+    --text3:#606058;
+    --border:#3a3a35;
+    --border2:#4a4a45;
+    --blue-bg:#0d2040;
+    --blue-text:#7aaaf0;
+    --green-bg:#0d2a18;
+    --green-text:#6acf96;
+    --red-bg:#2a0d0d;
+    --red-text:#f08080;
+    --amber-bg:#2a1a06;
+    --amber-text:#f0c070;
+    --accent:#6699ff;
+  }
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg3);color:var(--text);min-height:100vh;font-size:15px;line-height:1.5}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* Layout */
+.shell{max-width:960px;margin:0 auto;padding:0 1rem}
+header{background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.header-inner{display:flex;align-items:center;gap:1rem;padding:0.75rem 0}
+.logo{font-size:15px;font-weight:600;color:var(--text);letter-spacing:-0.01em}
+.logo span{color:var(--text3);font-weight:400}
+.header-meta{font-size:12px;color:var(--text3);margin-left:auto}
+
+main{padding:1.5rem 0 3rem}
+
+/* Search + filters */
+.search-bar{background:var(--bg);border:1px solid var(--border2);border-radius:10px;padding:0 14px;display:flex;align-items:center;gap:8px;margin-bottom:1rem;transition:border-color 0.15s}
+.search-bar:focus-within{border-color:var(--accent)}
+.search-icon{color:var(--text3);font-size:16px;flex-shrink:0}
+.search-bar input{flex:1;border:none;outline:none;background:transparent;font-size:15px;color:var(--text);padding:10px 0}
+.search-bar input::placeholder{color:var(--text3)}
+
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:1rem}
+.filters select{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;cursor:pointer;outline:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+.filters select:focus{border-color:var(--accent)}
+
+.toolbar{display:flex;align-items:center;gap:1rem;margin-bottom:1rem;flex-wrap:wrap}
+.result-count{font-size:13px;color:var(--text2)}
+.result-count strong{color:var(--text);font-weight:600}
+.clear-btn{font-size:13px;color:var(--accent);cursor:pointer;background:none;border:none;padding:0}
+.clear-btn:hover{text-decoration:underline}
+.sort-group{display:flex;align-items:center;gap:6px;margin-left:auto;font-size:13px;color:var(--text2)}
+.sort-group select{padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;outline:none}
+
+/* Cards */
+.results{display:flex;flex-direction:column;gap:6px}
+.card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;transition:border-color 0.12s,box-shadow 0.12s}
+.card:hover{border-color:var(--border2);box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.card-header{display:flex;align-items:flex-start;gap:10px;margin-bottom:6px}
+.card-title{font-size:14px;font-weight:500;color:var(--text);line-height:1.4;flex:1}
+.card-date{font-size:12px;color:var(--text3);white-space:nowrap;padding-top:2px;flex-shrink:0}
+.card-summary{font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:10px}
+.card-footer{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+.badge{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;white-space:nowrap;line-height:1.6}
+.b-topic{background:var(--blue-bg);color:var(--blue-text)}
+.b-action{background:var(--bg2);color:var(--text2);border:1px solid var(--border)}
+.b-geo{background:var(--green-bg);color:var(--green-text)}
+.b-pass{background:var(--green-bg);color:var(--green-text)}
+.b-fail{background:var(--red-bg);color:var(--red-text)}
+.b-pending{background:var(--amber-bg);color:var(--amber-text)}
+.b-neutral{background:var(--bg2);color:var(--text2)}
+.card-requester{font-size:12px;color:var(--text3);margin-left:auto;padding-top:1px}
+
+/* Pagination */
+.pagination{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:1.5rem;flex-wrap:wrap}
+.page-btn{padding:6px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;cursor:pointer;transition:background 0.1s,border-color 0.1s}
+.page-btn:hover:not(:disabled){background:var(--bg2);border-color:var(--border2)}
+.page-btn:disabled{opacity:0.35;cursor:default}
+.page-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.page-info{font-size:13px;color:var(--text2);padding:0 4px}
+
+/* Loading / empty */
+.loading{text-align:center;padding:3rem;color:var(--text3);font-size:14px}
+.empty{text-align:center;padding:3rem;color:var(--text2);font-size:14px}
+.empty p{margin-top:6px;font-size:13px;color:var(--text3)}
+
+/* Stats bar */
+.stats-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:1.5rem}
+.stat{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px}
+.stat-num{font-size:20px;font-weight:600;color:var(--text);letter-spacing:-0.02em}
+.stat-label{font-size:11px;color:var(--text3);margin-top:1px}
+
+/* Error */
+.error-box{background:var(--red-bg);color:var(--red-text);border:1px solid;border-radius:10px;padding:1rem 1.25rem;font-size:14px;margin-bottom:1rem}
+
+/* Expandable card */
+.card{cursor:pointer}
+.card.expanded{border-color:var(--accent)}
+.card-expand{display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.card.expanded .card-expand{display:block}
+.card-chevron{font-size:10px;color:var(--text3);margin-left:6px;display:inline-block;transition:transform 0.15s}
+.card.expanded .card-chevron{transform:rotate(180deg)}
+.expand-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;margin-bottom:14px}
+@media(max-width:500px){.expand-grid{grid-template-columns:1fr}}
+.expand-label{color:var(--text3);font-size:11px;margin-bottom:1px}
+.expand-value{color:var(--text);font-size:13px;line-height:1.4}
+.expand-raw{font-size:12px;color:var(--text2);line-height:1.5;padding:10px 12px;background:var(--bg2);border-radius:6px;margin-bottom:14px;border:1px solid var(--border)}
+.expand-actions{display:flex;gap:8px}
+.btn-legistar{display:inline-block;font-size:13px;padding:6px 14px;border:1px solid var(--border2);border-radius:7px;color:var(--text);background:var(--bg2);text-decoration:none}
+.btn-legistar:hover{background:var(--bg3);text-decoration:none}
+
+@media(max-width:600px){
+  .filters{grid-template-columns:1fr 1fr}
+  .header-meta{display:none}
+  .sort-group{margin-left:0;width:100%}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="shell">
+    <div class="header-inner">
+      <div class="logo">Cincinnati City Council <span>/ Legislative Record</span></div>
+      <div class="header-meta" id="header-meta">Loading…</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="shell">
+
+    <div id="error-box" class="error-box" style="display:none"></div>
+
+    <div class="stats-bar" id="stats-bar" style="display:none">
+      <div class="stat"><div class="stat-num" id="s-total">—</div><div class="stat-label">Total items</div></div>
+      <div class="stat"><div class="stat-num" id="s-passed">—</div><div class="stat-label">Passed</div></div>
+      <div class="stat"><div class="stat-num" id="s-years">—</div><div class="stat-label">Years covered</div></div>
+      <div class="stat"><div class="stat-num" id="s-topics">—</div><div class="stat-label">Topic categories</div></div>
+    </div>
+
+    <div class="search-bar">
+      <span class="search-icon">&#x2315;</span>
+      <input type="text" id="search" placeholder="Search titles and summaries…" oninput="onFilter()">
+    </div>
+
+    <div class="filters">
+      <select id="f-topic" onchange="onFilter()"><option value="">All topics</option></select>
+      <select id="f-action" onchange="onFilter()"><option value="">All action types</option></select>
+      <select id="f-geo" onchange="onFilter()"><option value="">All neighborhoods</option></select>
+      <select id="f-year" onchange="onFilter()"><option value="">All years</option></select>
+      <select id="f-status" onchange="onFilter()"><option value="">All statuses</option></select>
+    </div>
+
+    <div class="toolbar">
+      <div class="result-count" id="result-count"></div>
+      <button class="clear-btn" id="clear-btn" onclick="clearFilters()" style="display:none">Clear filters</button>
+      <div class="sort-group">
+        <span>Sort:</span>
+        <select id="sort" onchange="onSort()">
+          <option value="date-desc">Newest first</option>
+          <option value="date-asc">Oldest first</option>
+          <option value="title-asc">Title A–Z</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="results"><div class="loading">Loading records…</div></div>
+    <div id="pagination"></div>
+
+  </div>
+</main>
+
+<script>
+const PAGE_SIZE = 20;
+let ALL = [];
+let filtered = [];
+let page = 0;
+
+function statusClass(s) {
+  if (!s) return 'b-neutral';
+  const l = s.toLowerCase();
+  if (l.includes('pass') || l === 'adopted' || l === 'confirmed') return 'b-pass';
+  if (l.includes('fail') || l.includes('postponed')) return 'b-fail';
+  if (l === 'filed/sunset' || l === 'sunset' || l === 'filed') return 'b-neutral';
+  return 'b-pending';
+}
+
+function populateFilters() {
+  const topics = [...new Set(ALL.flatMap(r => r.tp ? r.tp.split('|') : []))].sort();
+  const actions = [...new Set(ALL.map(r => r.a).filter(Boolean))].sort();
+  const geos = [...new Set(ALL.flatMap(r => r.g ? r.g.split('|') : []))].filter(g => g && g !== 'citywide').sort();
+  geos.unshift('citywide');
+  const years = [...new Set(ALL.map(r => r.y).filter(Boolean))].sort().reverse();
+  const statuses = [...new Set(ALL.map(r => r.st).filter(Boolean))].sort();
+
+  const add = (id, vals) => {
+    const sel = document.getElementById(id);
+    vals.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o); });
+  };
+  add('f-topic', topics);
+  add('f-action', actions);
+  add('f-geo', geos);
+  add('f-year', years);
+  add('f-status', statuses);
+}
+
+function populateStats() {
+  const passed = ALL.filter(r => { const l = (r.st || '').toLowerCase(); return l.includes('pass') || l === 'adopted' || l === 'confirmed'; }).length;
+  const years = [...new Set(ALL.map(r => r.y).filter(Boolean))];
+  const topics = [...new Set(ALL.flatMap(r => r.tp ? r.tp.split('|') : []))];
+  document.getElementById('s-total').textContent = ALL.length.toLocaleString();
+  document.getElementById('s-passed').textContent = passed.toLocaleString();
+  document.getElementById('s-years').textContent = years.length;
+  document.getElementById('s-topics').textContent = topics.length;
+  document.getElementById('stats-bar').style.display = 'grid';
+  document.getElementById('header-meta').textContent = ALL.length.toLocaleString() + ' items · 2020–2026';
+}
+
+function getFilters() {
+  return {
+    q: (document.getElementById('search').value || '').toLowerCase().trim(),
+    topic: document.getElementById('f-topic').value,
+    action: document.getElementById('f-action').value,
+    geo: document.getElementById('f-geo').value,
+    year: document.getElementById('f-year').value,
+    status: document.getElementById('f-status').value,
+  };
+}
+
+function hasActiveFilters(f) {
+  return f.q || f.topic || f.action || f.geo || f.year || f.status;
+}
+
+function applyFilters() {
+  const f = getFilters();
+  filtered = ALL.filter(r => {
+    if (f.q) {
+      const hay = (r.t + ' ' + r.sm).toLowerCase();
+      if (!hay.includes(f.q)) return false;
+    }
+    if (f.topic && !(r.tp || '').split('|').includes(f.topic)) return false;
+    if (f.action && r.a !== f.action) return false;
+    if (f.geo && !(r.g || '').split('|').includes(f.geo)) return false;
+    if (f.year && r.y !== f.year) return false;
+    if (f.status && r.st !== f.status) return false;
+    return true;
+  });
+  document.getElementById('clear-btn').style.display = hasActiveFilters(f) ? 'inline' : 'none';
+}
+
+function applySort() {
+  const s = document.getElementById('sort').value;
+  if (s === 'date-desc') filtered.sort((a, b) => (b.d || '').localeCompare(a.d || ''));
+  else if (s === 'date-asc') filtered.sort((a, b) => (a.d || '').localeCompare(b.d || ''));
+  else if (s === 'title-asc') filtered.sort((a, b) => (a.t || '').localeCompare(b.t || ''));
+}
+
+function onFilter() { page = 0; applyFilters(); applySort(); render(); }
+function onSort() { applySort(); render(); }
+
+function clearFilters() {
+  document.getElementById('search').value = '';
+  ['f-topic','f-action','f-geo','f-year','f-status'].forEach(id => document.getElementById(id).value = '');
+  onFilter();
+}
+
+function render() {
+  const start = page * PAGE_SIZE;
+  const slice = filtered.slice(start, start + PAGE_SIZE);
+  const f = getFilters();
+  const count = document.getElementById('result-count');
+  if (hasActiveFilters(f)) {
+    count.innerHTML = `<strong>${filtered.length.toLocaleString()}</strong> results`;
+  } else {
+    count.innerHTML = `<strong>${filtered.length.toLocaleString()}</strong> items`;
+  }
+
+  const res = document.getElementById('results');
+  if (filtered.length === 0) {
+    res.innerHTML = '<div class="empty">No matching records<p>Try broadening your search or clearing filters</p></div>';
+    document.getElementById('pagination').innerHTML = '';
+    return;
+  }
+
+  res.innerHTML = slice.map((r, idx) => {
+    const topics = r.tp ? r.tp.split('|').map(t => `<span class="badge b-topic">${t}</span>`).join('') : '';
+    const geos = r.g ? r.g.split('|').map(g => `<span class="badge b-geo">${g}</span>`).join('') : '';
+    const req = r.rq ? `<span class="card-requester">${r.rq}</span>` : '';
+    const legistarUrl = r.f ? `https://cincinnatioh.legistar.com/LegislationDetail.aspx?ID=${r.f}` : '';
+    const fields = [
+      {label:'File number', val: r.f || '—'},
+      {label:'Matter type', val: r.mt || '—'},
+      {label:'Status', val: r.st || '—'},
+      {label:'Submitted by', val: r.rq || '—'},
+      {label:'Introduced', val: r.d || '—'},
+      {label:'Action type', val: r.a || '—'},
+    ];
+    const expandGrid = fields.map(f => `<div><div class="expand-label">${f.label}</div><div class="expand-value">${f.val}</div></div>`).join('');
+    return `<div class="card" onclick="toggleCard(this)">
+      <div class="card-header">
+        <div class="card-title">${r.t || '(untitled)'}<span class="card-chevron">▼</span></div>
+        <div class="card-date">${r.d || ''}</div>
+      </div>
+      ${r.sm ? `<div class="card-summary">${r.sm}</div>` : ''}
+      <div class="card-footer">
+        ${topics}
+        <span class="badge b-action">${r.a || ''}</span>
+        ${geos}
+        <span class="badge ${statusClass(r.st)}">${r.st || ''}</span>
+        ${req}
+      </div>
+      <div class="card-expand">
+        <div class="expand-grid">${expandGrid}</div>
+        ${r.rt ? `<div class="expand-label" style="margin-bottom:4px">Full Legistar title</div><div class="expand-raw">${r.rt}</div>` : ''}
+        <div class="expand-actions">
+          ${legistarUrl ? `<a href="${legistarUrl}" target="_blank" class="btn-legistar">↗ View on Legistar</a>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  renderPagination();
+}
+
+function renderPagination() {
+  const total = Math.ceil(filtered.length / PAGE_SIZE);
+  const pag = document.getElementById('pagination');
+  if (total <= 1) { pag.innerHTML = ''; return; }
+
+  let html = `<button class="page-btn" onclick="goPage(${page - 1})" ${page === 0 ? 'disabled' : ''}>← Prev</button>`;
+
+  const range = [];
+  for (let i = 0; i < total; i++) {
+    if (i === 0 || i === total - 1 || Math.abs(i - page) <= 2) range.push(i);
+    else if (range[range.length - 1] !== '…') range.push('…');
+  }
+  range.forEach(i => {
+    if (i === '…') {
+      html += `<span class="page-info">…</span>`;
+    } else {
+      html += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="goPage(${i})">${i + 1}</button>`;
+    }
+  });
+
+  html += `<button class="page-btn" onclick="goPage(${page + 1})" ${page >= total - 1 ? 'disabled' : ''}>Next →</button>`;
+  pag.innerHTML = html;
+}
+
+function goPage(p) {
+  page = p;
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleCard(el) {
+  const wasExpanded = el.classList.contains('expanded');
+  document.querySelectorAll('.card.expanded').forEach(c => c.classList.remove('expanded'));
+  if (!wasExpanded) el.classList.add('expanded');
+}
+
+async function loadData() {
+  try {
+    const resp = await fetch('council_data.json');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    ALL = await resp.json();
+    populateFilters();
+    populateStats();
+    applyFilters();
+    applySort();
+    render();
+  } catch (e) {
+    document.getElementById('error-box').style.display = 'block';
+    document.getElementById('error-box').textContent = 'Could not load data file. Make sure council_data.json is in the same folder as index.html. Error: ' + e.message;
+    document.getElementById('results').innerHTML = '';
+    document.getElementById('header-meta').textContent = 'Data not loaded';
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>
