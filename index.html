@@ -375,7 +375,7 @@ function render() {
     const expandGrid = fields.map(f => `<div><div class="expand-label">${f.label}</div><div class="expand-value">${f.val}</div></div>`).join('');
     return `<div class="card" onclick="toggleCard(this)">
       <div class="card-header">
-        <div class="card-title">${r.rt || r.t || '(untitled)'}<span class="card-chevron">▼</span></div>
+        <div class="card-title">${r.t || '(untitled)'}<span class="card-chevron">▼</span></div>
         <div class="card-date">${r.d || ''}</div>
       </div>
       ${r.sm ? `<div class="card-summary">${r.sm}</div>` : ''}
