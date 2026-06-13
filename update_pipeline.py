@@ -201,11 +201,11 @@ def tag_item(client, item):
     """Tag a single item (used for fallback)."""
     mt = item['matter_type']
     if mt in REGISTRATION_TYPES:
-        item.update({"clean_title": item['raw_title'], "topic_tags": "registrations and terminations",
+        item.update({"clean_title": item['raw_title'][:80], "topic_tags": "registrations and terminations",
                      "action_type_ai": "registration", "geography": "", "summary": "", "tag_status": "success"})
         return item
     if mt in STATEMENT_TYPES:
-        item.update({"clean_title": item['raw_title'], "topic_tags": "financial statements",
+        item.update({"clean_title": item['raw_title'][:80], "topic_tags": "financial statements",
                      "action_type_ai": "statement", "geography": "", "summary": "", "tag_status": "success"})
         return item
 
@@ -372,13 +372,13 @@ def main():
             if item['matter_type'] in SKIP_TAG_TYPES:
                 mt = item['matter_type']
                 if mt in REGISTRATION_TYPES:
-                    item.update({"clean_title": item['raw_title'], "topic_tags": "registrations and terminations",
+                    item.update({"clean_title": item['raw_title'][:80], "topic_tags": "registrations and terminations",
                                  "action_type_ai": "registration", "geography": "", "summary": "", "tag_status": "success"})
                 elif mt in STATEMENT_TYPES:
-                    item.update({"clean_title": item['raw_title'], "topic_tags": "financial statements",
+                    item.update({"clean_title": item['raw_title'][:80], "topic_tags": "financial statements",
                                  "action_type_ai": "statement", "geography": "", "summary": "", "tag_status": "success"})
                 else:
-                    item.update({"clean_title": item['raw_title'], "topic_tags": "elections and governance",
+                    item.update({"clean_title": item['raw_title'][:80], "topic_tags": "elections and governance",
                                  "action_type_ai": "other", "geography": "", "summary": "", "tag_status": "success"})
             else:
                 to_tag.append(item)
