@@ -125,12 +125,13 @@ let MEMBERS = [];
 
 function getMemberStats(name) {
   let yes = 0, no = 0, abstain = 0, absent = 0, excused = 0;
-  Object.values(VOTES).forEach(v => {
-    if ((v.vote_yes||[]).includes(name)) yes++;
-    else if ((v.vote_no||[]).includes(name)) no++;
-    else if ((v.vote_abstain||[]).includes(name)) abstain++;
-    else if ((v.vote_absent||[]).includes(name)) absent++;
-    else if ((v.vote_excused||[]).includes(name)) excused++;
+  ALL.forEach(r => {
+    if (!r.vote_yes) return;
+    if ((r.vote_yes||[]).includes(name)) yes++;
+    else if ((r.vote_no||[]).includes(name)) no++;
+    else if ((r.vote_abstain||[]).includes(name)) abstain++;
+    else if ((r.vote_absent||[]).includes(name)) absent++;
+    else if ((r.vote_excused||[]).includes(name)) excused++;
   });
   return {yes, no, abstain, absent, excused, total: yes+no+abstain+absent+excused};
 }
@@ -159,19 +160,19 @@ function getVoteType(r, name) {
 function render() {
   const members = MEMBERS;
 
-  // Get year range from vote data
-  const dates = ALL.filter(r => r.vote_yes && r.d).map(r => r.d);
-  const minYear = dates.length ? dates[dates.length-1].slice(0,4) : '2020';
-  const maxYear = dates.length ? dates[0].slice(0,4) : '2026';
+  // Get year range from vote data (order-independent)
+  const years = ALL.filter(r => r.vote_yes && r.d).map(r => r.d.slice(0,4));
+  const minYear = years.length ? years.reduce((a,b) => a < b ? a : b) : '2020';
+  const maxYear = years.length ? years.reduce((a,b) => a > b ? a : b) : '2026';
   const rangeLabel = minYear === maxYear ? minYear : `${minYear}–${maxYear}`;
 
   let html = `<div class="section-title">Voting Record ${rangeLabel} — Select a member</div>`;
-  html += '<div class="member-grid">';
-  members.forEach(name => {
+
+  function memberCard(name) {
     const s = getMemberStats(name);
     const yesPct = s.total ? Math.round(s.yes/s.total*100) : 0;
     const isActive = selectedMember === name;
-    html += `<div class="member-card ${isActive?'active':''}" onclick="selectMember('${name}')">
+    return `<div class="member-card ${isActive?'active':''}" onclick="selectMember('${name}')">
       <div class="member-name">${name}</div>
       <div class="member-stats">
         <span class="stat-pill pill-total">${s.total} votes</span>
@@ -183,7 +184,16 @@ function render() {
       </div>
       <div class="bar-wrap"><div class="bar-yes" style="width:${yesPct}%"></div></div>
     </div>`;
-  });
+  }
+
+  html += '<div class="section-title">Current Members</div>';
+  html += '<div class="member-grid">';
+  members.slice(0, 9).forEach(name => { html += memberCard(name); });
+  html += '</div>';
+
+  html += '<div class="section-title">Former Members</div>';
+  html += '<div class="member-grid">';
+  members.slice(9).forEach(name => { html += memberCard(name); });
   html += '</div>';
 
   if (selectedMember) {
