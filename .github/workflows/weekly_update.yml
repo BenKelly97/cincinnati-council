@@ -21,6 +21,9 @@ jobs:
       - name: Install dependencies
         run: pip install requests anthropic beautifulsoup4
 
+      - name: Scrape latest vote data
+        run: python3 scrape_votes_api.py
+
       - name: Run update pipeline
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -30,6 +33,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add council_data.json cincinnati_agenda_items_complete.csv
+          git add council_data.json cincinnati_agenda_items_complete.csv votes_api.json
           git diff --staged --quiet || git commit -m "Weekly data update $(date +'%Y-%m-%d')"
           git push
