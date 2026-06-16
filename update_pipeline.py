@@ -81,10 +81,22 @@ def rule_based_summary(raw_title):
     items without calling the AI, based on known Legistar title patterns."""
     t = (raw_title or "").strip()
 
-    m = re.search(r'Financial Disclosure Statement for ([^,]+),\s*(.+?)\.?\s*$', t)
+    m = re.search(r'Financial Disclosure Statement\s+(?:for\s+)?(.+?)\s*$', t)
     if m:
-        name, title = m.group(1).strip(), m.group(2).strip().rstrip('.')
-        return f"Financial disclosure statement filed for {name} ({title})"
+        body = m.group(1).strip().rstrip('.')
+        body = re.sub(r'\s*\(ETHICS\)\s*$', '', body, flags=re.IGNORECASE).strip().rstrip('.')
+        pm = re.match(r'^(.+?)\s*\(([^()]+)\)\s*$', body)
+        if pm:
+            return f"Financial disclosure statement filed for {pm.group(1).strip().rstrip('/').strip()} ({pm.group(2).strip()})"
+        if ',' in body:
+            name, title = body.split(',', 1)
+            return f"Financial disclosure statement filed for {name.strip()} ({title.strip()})"
+        if '/' in body:
+            parts = [p.strip() for p in body.split('/')]
+            name = parts[0]
+            title = '/'.join(parts[1:])
+            return f"Financial disclosure statement filed for {name} ({title})"
+        return f"Financial disclosure statement filed for {body}"
 
     m = re.search(r'Legislative Agent ((?:\([A-Za-z.\-]+\)\s*)?[A-Za-z.\- ]+?),\s*(.+)$', t)
     if m:
@@ -104,6 +116,51 @@ def rule_based_summary(raw_title):
         cut = t[:160].rsplit(' ', 1)[0]
         return cut + '…'
     return t
+
+def rule_based_title(raw_title, matter_type):
+    """Generate a short, complete-sentence title for Statement/Registration
+    items, avoiding mid-word truncation of the raw Legistar boilerplate."""
+    t = (raw_title or "").strip()
+
+    m = re.search(r'Financial Disclosure Statement\s+(?:for\s+)?(.+?)\s*$', t)
+    if m:
+        body = m.group(1).strip().rstrip('.')
+        body = re.sub(r'\s*\(ETHICS\)\s*$', '', body, flags=re.IGNORECASE).strip().rstrip('.')
+        name = re.split(r'[,/(]', body)[0].strip()
+        if name:
+            return f"Financial Disclosure Statement — {name}"
+
+    m = re.search(r'filing a copy of the ([A-Z][a-zA-Z.\' ]+?)/', t)
+    if m:
+        name = m.group(1).strip()
+        return f"Financial Disclosure Statement — {name}"
+
+    m = re.search(r'(?:Legislative Agent|from)\s+(?:Legislative\s+)?((?:\([A-Za-z.\-]+\)\s*)?[A-Za-z.\- ]+?),', t)
+    if m and 'REGISTRATION' in t.upper():
+        name = re.sub(r'\s+', ' ', m.group(1)).strip()
+        if name and name.lower() not in ('the clerk of council', 'clerk of council'):
+            return f"Lobbyist Registration — {name}"
+
+    if t.upper().startswith('SUCCESSOR'):
+        return "Successor Designation Certificates Filed"
+
+    if matter_type == 'Termination':
+        return "Lobbyist Registration Terminated"
+
+    m = re.search(r'^STATEMENT,\s*\(([^)]+)\)', t, re.IGNORECASE)
+    if m:
+        label = m.group(1).strip().title()
+        return f"Statement — {label}"
+
+    m = re.search(r'^STATEMENT,\s*(?:dated [\d/]+,\s*)?submitted by ([^,]+),', t, re.IGNORECASE)
+    if m:
+        submitter = m.group(1).strip()
+        return f"Statement — {submitter}"
+
+    if matter_type in ('Registration', 'Registration-Update'):
+        return "Lobbyist Registration"
+
+    return "Council Statement"
 
 COUNCILMEMBERS = {
     'Jan-Michele Kearney', 'Meeka Owens', 'Mark Jeffreys', 'Greg Landsman',
@@ -230,11 +287,11 @@ def tag_item(client, item):
     """Tag a single item (used for fallback)."""
     mt = item['matter_type']
     if mt in REGISTRATION_TYPES:
-        item.update({"clean_title": item['raw_title'][:80], "topic_tags": "registrations and terminations",
+        item.update({"clean_title": rule_based_title(item['raw_title'], mt), "topic_tags": "registrations and terminations",
                      "action_type_ai": "registration", "geography": "", "summary": rule_based_summary(item['raw_title']), "tag_status": "success"})
         return item
     if mt in STATEMENT_TYPES:
-        item.update({"clean_title": item['raw_title'][:80], "topic_tags": "financial statements",
+        item.update({"clean_title": rule_based_title(item['raw_title'], mt), "topic_tags": "financial statements",
                      "action_type_ai": "statement", "geography": "", "summary": rule_based_summary(item['raw_title']), "tag_status": "success"})
         return item
 
@@ -401,10 +458,10 @@ def main():
             if item['matter_type'] in SKIP_TAG_TYPES:
                 mt = item['matter_type']
                 if mt in REGISTRATION_TYPES:
-                    item.update({"clean_title": item['raw_title'][:80], "topic_tags": "registrations and terminations",
+                    item.update({"clean_title": rule_based_title(item['raw_title'], mt), "topic_tags": "registrations and terminations",
                                  "action_type_ai": "registration", "geography": "", "summary": rule_based_summary(item['raw_title']), "tag_status": "success"})
                 elif mt in STATEMENT_TYPES:
-                    item.update({"clean_title": item['raw_title'][:80], "topic_tags": "financial statements",
+                    item.update({"clean_title": rule_based_title(item['raw_title'], mt), "topic_tags": "financial statements",
                                  "action_type_ai": "statement", "geography": "", "summary": rule_based_summary(item['raw_title']), "tag_status": "success"})
                 else:
                     item.update({"clean_title": item['raw_title'][:80], "topic_tags": "elections and governance",
