@@ -76,6 +76,35 @@ GEOGRAPHY_TAGS = [
 REGISTRATION_TYPES = {'Registration', 'Registration-Update', 'Termination', 'Successor'}
 STATEMENT_TYPES    = {'Statement'}
 
+def rule_based_summary(raw_title):
+    """Generate a short, human-readable summary for Statement/Registration
+    items without calling the AI, based on known Legistar title patterns."""
+    t = (raw_title or "").strip()
+
+    m = re.search(r'Financial Disclosure Statement for ([^,]+),\s*(.+?)\.?\s*$', t)
+    if m:
+        name, title = m.group(1).strip(), m.group(2).strip().rstrip('.')
+        return f"Financial disclosure statement filed for {name} ({title})"
+
+    m = re.search(r'Legislative Agent ((?:\([A-Za-z.\-]+\)\s*)?[A-Za-z.\- ]+?),\s*(.+)$', t)
+    if m:
+        name = re.sub(r'\s+', ' ', m.group(1)).strip()
+        rest = m.group(2).strip().rstrip('.')
+        org_m = re.search(r'\(([^()]+)\)\s*$', rest)
+        if org_m:
+            org = org_m.group(1).strip()
+            return f"Lobbyist registration for {name} representing {org}"
+        role = rest.split(',')[0].strip()
+        return f"Lobbyist registration for {name} ({role})"
+
+    if t.upper().startswith('SUCCESSOR'):
+        return "Successor designation certificates received by Clerk of Council"
+
+    if len(t) > 160:
+        cut = t[:160].rsplit(' ', 1)[0]
+        return cut + '…'
+    return t
+
 COUNCILMEMBERS = {
     'Jan-Michele Kearney', 'Meeka Owens', 'Mark Jeffreys', 'Greg Landsman',
     'Reggie Harris', 'Scotty Johnson', 'Chris Seelbach', 'Jeff Cramerding',
@@ -202,11 +231,11 @@ def tag_item(client, item):
     mt = item['matter_type']
     if mt in REGISTRATION_TYPES:
         item.update({"clean_title": item['raw_title'][:80], "topic_tags": "registrations and terminations",
-                     "action_type_ai": "registration", "geography": "", "summary": "", "tag_status": "success"})
+                     "action_type_ai": "registration", "geography": "", "summary": rule_based_summary(item['raw_title']), "tag_status": "success"})
         return item
     if mt in STATEMENT_TYPES:
         item.update({"clean_title": item['raw_title'][:80], "topic_tags": "financial statements",
-                     "action_type_ai": "statement", "geography": "", "summary": "", "tag_status": "success"})
+                     "action_type_ai": "statement", "geography": "", "summary": rule_based_summary(item['raw_title']), "tag_status": "success"})
         return item
 
     try:
@@ -373,10 +402,10 @@ def main():
                 mt = item['matter_type']
                 if mt in REGISTRATION_TYPES:
                     item.update({"clean_title": item['raw_title'][:80], "topic_tags": "registrations and terminations",
-                                 "action_type_ai": "registration", "geography": "", "summary": "", "tag_status": "success"})
+                                 "action_type_ai": "registration", "geography": "", "summary": rule_based_summary(item['raw_title']), "tag_status": "success"})
                 elif mt in STATEMENT_TYPES:
                     item.update({"clean_title": item['raw_title'][:80], "topic_tags": "financial statements",
-                                 "action_type_ai": "statement", "geography": "", "summary": "", "tag_status": "success"})
+                                 "action_type_ai": "statement", "geography": "", "summary": rule_based_summary(item['raw_title']), "tag_status": "success"})
                 else:
                     item.update({"clean_title": item['raw_title'][:80], "topic_tags": "elections and governance",
                                  "action_type_ai": "other", "geography": "", "summary": "", "tag_status": "success"})
