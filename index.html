@@ -214,6 +214,12 @@ let ALL = [];
 let filtered = [];
 let page = 0;
 
+const RQ_NORMALIZE = {
+  'Jan-Michele': 'Jan-Michele Kearney',
+  'Jeff Camerding': 'Jeff Cramerding',
+  'Anna Alarcon Albi': 'Anna Albi',
+};
+
 function statusClass(s) {
   if (!s) return 'b-neutral';
   const l = s.toLowerCase();
@@ -240,11 +246,6 @@ function populateFilters() {
   add('f-geo', geos);
   add('f-year', years);
   add('f-status', statuses);
-  const RQ_NORMALIZE = {
-    'Jan-Michele': 'Jan-Michele Kearney',
-    'Jeff Camerding': 'Jeff Cramerding',
-    'Anna Alarcon Albi': 'Anna Albi',
-  };
   const COUNCIL_MEMBERS = new Set([
     'Anna Alarcon Albi','Anna Albi','Seth Walsh','Scotty Johnson','Jeff Cramerding',
     'Mark Jeffreys','Meeka Owens','Evan Nolan','Victoria Parks',
