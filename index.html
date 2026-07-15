@@ -112,10 +112,11 @@ main{padding:1.5rem 0 3rem}
 .empty p{margin-top:6px;font-size:13px;color:var(--text3)}
 
 /* Stats bar */
-.stats-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:1.5rem}
-.stat{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px}
-.stat-num{font-size:20px;font-weight:600;color:var(--text);letter-spacing:-0.02em}
-.stat-label{font-size:11px;color:var(--text3);margin-top:1px}
+.stats-strip{display:flex;align-items:center;gap:1.5rem;margin-bottom:1.25rem;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;flex-wrap:wrap}
+.stat-item{display:flex;align-items:baseline;gap:5px}
+.stat-num{font-size:15px;font-weight:600;color:var(--text)}
+.stat-label{font-size:12px;color:var(--text3)}
+.stat-divider{width:1px;height:14px;background:var(--border);flex-shrink:0}
 
 /* Error */
 .error-box{background:var(--red-bg);color:var(--red-text);border:1px solid;border-radius:10px;padding:1rem 1.25rem;font-size:14px;margin-bottom:1rem}
@@ -125,7 +126,7 @@ main{padding:1.5rem 0 3rem}
 .card.expanded{border-color:var(--accent)}
 .card-expand{display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
 .card.expanded .card-expand{display:block}
-.card-chevron{font-size:10px;color:var(--text3);margin-left:6px;display:inline-block;transition:transform 0.15s}
+.card-chevron{font-size:9px;color:var(--border2);margin-left:5px;display:inline-block;transition:transform 0.15s;vertical-align:middle}
 .card.expanded .card-chevron{transform:rotate(180deg)}
 .expand-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;margin-bottom:14px}
 @media(max-width:500px){.expand-grid{grid-template-columns:1fr}}
@@ -168,11 +169,10 @@ main{padding:1.5rem 0 3rem}
 
     <div id="error-box" class="error-box" style="display:none"></div>
 
-    <div class="stats-bar" id="stats-bar" style="display:none">
-      <div class="stat"><div class="stat-num" id="s-total">—</div><div class="stat-label">Total items</div></div>
-      <div class="stat"><div class="stat-num" id="s-passed">—</div><div class="stat-label">Passed</div></div>
-      <div class="stat"><div class="stat-num" id="s-years">—</div><div class="stat-label">Years covered</div></div>
-      <div class="stat"><div class="stat-num" id="s-topics">—</div><div class="stat-label">Topic categories</div></div>
+    <div class="stats-strip" id="stats-bar" style="display:none">
+      <div class="stat-item"><span class="stat-num" id="s-total">—</span><span class="stat-label">items</span></div>
+      <div class="stat-divider"></div>
+      <div class="stat-item"><span class="stat-num" id="s-passed">—</span><span class="stat-label">passed</span></div>
     </div>
 
     <div class="search-bar">
@@ -198,6 +198,7 @@ main{padding:1.5rem 0 3rem}
           <option value="date-desc">Newest first</option>
           <option value="date-asc">Oldest first</option>
           <option value="title-asc">Title A–Z</option>
+          <option value="relevance" id="sort-relevance" style="display:none">Relevance</option>
         </select>
       </div>
     </div>
@@ -268,9 +269,7 @@ function populateStats() {
   const topics = [...new Set(ALL.flatMap(r => r.tp ? r.tp.split('|') : []))];
   document.getElementById('s-total').textContent = ALL.length.toLocaleString();
   document.getElementById('s-passed').textContent = passed.toLocaleString();
-  document.getElementById('s-years').textContent = years.length;
-  document.getElementById('s-topics').textContent = topics.length;
-  document.getElementById('stats-bar').style.display = 'grid';
+  document.getElementById('stats-bar').style.display = 'flex';
   document.getElementById('header-meta').textContent = ALL.length.toLocaleString() + ' items · 2020–2026';
 }
 
@@ -313,9 +312,29 @@ function applySort() {
   if (s === 'date-desc') filtered.sort((a, b) => (b.d || '').localeCompare(a.d || ''));
   else if (s === 'date-asc') filtered.sort((a, b) => (a.d || '').localeCompare(b.d || ''));
   else if (s === 'title-asc') filtered.sort((a, b) => (a.t || '').localeCompare(b.t || ''));
+  else if (s === 'relevance') {
+    const q = (document.getElementById('search').value || '').toLowerCase().trim();
+    filtered.sort((a, b) => {
+      const scoreA = (a.t || '').toLowerCase().includes(q) ? 0 : 1;
+      const scoreB = (b.t || '').toLowerCase().includes(q) ? 0 : 1;
+      if (scoreA !== scoreB) return scoreA - scoreB;
+      return (b.d || '').localeCompare(a.d || '');
+    });
+  }
 }
 
-function onFilter() { page = 0; applyFilters(); applySort(); render(); }
+function onFilter() {
+  page = 0;
+  applyFilters();
+  const sortEl = document.getElementById('sort');
+  const relOpt = document.getElementById('sort-relevance');
+  const hasQ = !!document.getElementById('search').value.trim();
+  relOpt.style.display = hasQ ? '' : 'none';
+  if (hasQ && sortEl.value !== 'relevance') sortEl.value = 'relevance';
+  if (!hasQ && sortEl.value === 'relevance') sortEl.value = 'date-desc';
+  applySort();
+  render();
+}
 function onSort() { applySort(); render(); }
 
 function clearFilters() {
@@ -364,7 +383,18 @@ function render() {
     }
     const topics = r.tp ? r.tp.split('|').map(t => `<span class="badge b-topic">${t}</span>`).join('') : '';
     const geos = r.g ? r.g.split('|').map(g => `<span class="badge b-geo">${g}</span>`).join('') : '';
-    const req = r.rq ? `<span class="card-requester">${r.rq}</span>` : '';
+    const COUNCIL_SET = new Set([
+      'Anna Alarcon Albi','Anna Albi','Seth Walsh','Scotty Johnson','Jeff Cramerding',
+      'Mark Jeffreys','Meeka Owens','Evan Nolan','Victoria Parks',
+      'Jan-Michele Kearney','Greg Landsman','Chris Seelbach','P.G. Sittenfeld',
+      'David Mann','Reggie Harris','Christopher Smitherman','Betsy Sundermann',
+      'Wendell Young','Jeff Pastor','Liz Keating','Ryan James','Steve Goodin',
+    ]);
+    const rqNorm = RQ_NORMALIZE[r.rq] || r.rq;
+    const isMember = COUNCIL_SET.has(rqNorm);
+    const req = (r.rq && r.rq !== 'City Manager')
+      ? `<span class="card-requester" style="${isMember ? 'color:var(--accent)' : ''}">${rqNorm}</span>`
+      : '';
     const legistarUrl = r.legistar_url || '';
     const fields = [
       {label:'File number', val: r.f || '—'},
