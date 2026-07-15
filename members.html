@@ -69,6 +69,10 @@ main{padding:1.5rem 0 3rem}
 .empty{text-align:center;padding:2rem;color:var(--text2);font-size:14px}
 .loading{text-align:center;padding:3rem;color:var(--text3);font-size:14px}
 .section-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1rem}
+.b-pass{background:var(--green-bg);color:var(--green-text)}
+.b-fail{background:var(--red-bg);color:var(--red-text)}
+.b-pending{background:var(--amber-bg);color:var(--amber-text)}
+.b-neutral{background:var(--bg2);color:var(--text2)}
 </style>
 </head>
 <body>
@@ -166,12 +170,12 @@ function render() {
   const rangeLabel = minYear === maxYear ? minYear : `${minYear}–${maxYear}`;
 
   let html = `<div class="section-title">Voting Record ${rangeLabel} — Select a member</div>`;
-  html += '<div class="member-grid">';
-  members.forEach(name => {
+
+  function memberCard(name) {
     const s = getMemberStats(name);
     const yesPct = s.total ? Math.round(s.yes/s.total*100) : 0;
     const isActive = selectedMember === name;
-    html += `<div class="member-card ${isActive?'active':''}" onclick="selectMember('${name}')">
+    return `<div class="member-card ${isActive?'active':''}" onclick="selectMember('${name}')">
       <div class="member-name">${name}</div>
       <div class="member-stats">
         <span class="stat-pill pill-total">${s.total} votes</span>
@@ -183,7 +187,16 @@ function render() {
       </div>
       <div class="bar-wrap"><div class="bar-yes" style="width:${yesPct}%"></div></div>
     </div>`;
-  });
+  }
+
+  html += '<div class="section-title" style="margin-top:0.5rem">Current Members</div>';
+  html += '<div class="member-grid">';
+  members.slice(0, 9).forEach(name => { html += memberCard(name); });
+  html += '</div>';
+
+  html += '<div class="section-title" style="margin-top:1rem">Former Members</div>';
+  html += '<div class="member-grid">';
+  members.slice(9).forEach(name => { html += memberCard(name); });
   html += '</div>';
 
   if (selectedMember) {
@@ -215,13 +228,30 @@ function render() {
         const badgeClass = vtype === 'yes' ? 'badge-yes' : vtype === 'no' ? 'badge-no' : vtype === 'abstain' ? 'badge-abstain' : 'badge-neutral';
         const badgeLabel = vtype === 'yes' ? 'Yes' : vtype === 'no' ? 'No' : vtype === 'abstain' ? 'Abstain' : vtype === 'excused' ? 'Excused' : 'Absent';
         const others_no = (r.vote_no||[]).filter(m => m !== selectedMember);
-        const minority = vtype === 'no' && others_no.length ? ` · also no: ${others_no.join(', ')}` : '';
-        const legistarLink = (r.legistar_url) ? `<a href="${r.legistar_url}" target="_blank" style="font-size:12px;color:var(--accent);margin-left:8px;white-space:nowrap">↗ Legistar</a>` : '';
-        html += `<div class="vote-item">
-          <span class="vote-badge ${badgeClass}">${badgeLabel}</span>
-          <div style="flex:1">
-            <div class="vote-item-title">${r.t || r.f}${legistarLink}</div>
-            <div class="vote-item-meta">${r.d} · ${r.vote_result || r.st}${minority}</div>
+        const minority = vtype === 'no' && others_no.length ? `<span style="color:var(--text3)"> · also no: ${others_no.join(', ')}</span>` : '';
+        const legistarLink = r.legistar_url ? `<a href="${r.legistar_url}" target="_blank" style="font-size:12px;color:var(--accent);margin-left:8px;white-space:nowrap;font-weight:400">↗ Legistar</a>` : '';
+        const topics = r.tp ? r.tp.split('|').map(t => `<span class="stat-pill" style="background:var(--blue-bg);color:var(--blue-text);border:none">${t}</span>`).join('') : '';
+        const actionBadge = r.a ? `<span class="stat-pill" style="background:var(--bg2);color:var(--text2);border:1px solid var(--border)">${r.a}</span>` : '';
+        const geo = r.g ? r.g.split('|').filter(g => g && g !== 'citywide').map(g => `<span class="stat-pill" style="background:var(--green-bg);color:var(--green-text);border:none">${g}</span>`).join('') : '';
+        const statusClass = (s => {
+          if (!s) return 'badge-neutral';
+          const l = s.toLowerCase();
+          if (l.includes('pass') || l === 'adopted' || l === 'confirmed') return 'b-pass';
+          if (l.includes('fail') || l.includes('postponed')) return 'b-fail';
+          return 'b-pending';
+        })(r.st);
+        html += `<div class="vote-item" style="flex-direction:column;align-items:stretch;gap:6px">
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <span class="vote-badge ${badgeClass}" style="flex-shrink:0;margin-top:2px">${badgeLabel}</span>
+            <div style="flex:1">
+              <div class="vote-item-title">${r.t || r.f}${legistarLink}${minority}</div>
+              ${r.sm ? `<div class="vote-item-meta" style="margin-top:2px">${r.sm}</div>` : ''}
+            </div>
+            <div style="font-size:12px;color:var(--text3);white-space:nowrap;flex-shrink:0">${r.d || ''}</div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding-left:0">
+            ${topics}${actionBadge}${geo}
+            <span class="stat-pill ${statusClass}" style="padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500">${r.st || ''}</span>
           </div>
         </div>`;
       });
