@@ -58,11 +58,14 @@ main{padding:1.5rem 0 3rem}
 .filter-group{display:flex;gap:6px;margin-left:auto}
 .filter-btn{font-size:12px;padding:4px 12px;border:1px solid var(--border);border-radius:20px;background:var(--bg);color:var(--text2);cursor:pointer}
 .filter-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-.vote-item{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:6px;display:flex;flex-direction:column;gap:8px;transition:border-color 0.12s}
-.vote-item:hover{border-color:var(--border2)}
-.vote-item-top{display:flex;align-items:flex-start;gap:10px}
-.vote-item-badges{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
-.badge{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;white-space:nowrap;line-height:1.6}
+.vote-item{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:6px;transition:border-color 0.12s,box-shadow 0.12s}
+.vote-item:hover{border-color:var(--border2);box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.card-header{display:flex;align-items:flex-start;gap:10px;margin-bottom:6px}
+.card-title{font-size:14px;font-weight:500;color:var(--text);line-height:1.4;flex:1}
+.card-date{font-size:12px;color:var(--text3);white-space:nowrap;padding-top:2px;flex-shrink:0}
+.card-summary{font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:10px}
+.card-footer{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+.tag{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;white-space:nowrap;line-height:1.6}
 .b-topic{background:var(--blue-bg);color:var(--blue-text)}
 .b-action{background:var(--bg2);color:var(--text2);border:1px solid var(--border)}
 .b-geo{background:var(--green-bg);color:var(--green-text)}
@@ -71,8 +74,7 @@ main{padding:1.5rem 0 3rem}
 .badge-no{background:var(--red-bg);color:var(--red-text)}
 .badge-abstain{background:var(--amber-bg);color:var(--amber-text)}
 .badge-neutral{background:var(--bg2);color:var(--text3);border:1px solid var(--border)}
-.vote-item-title{font-size:14px;font-weight:500;color:var(--text);line-height:1.4}
-.vote-item-summary{font-size:13px;color:var(--text2);line-height:1.5}
+
 .empty{text-align:center;padding:2rem;color:var(--text2);font-size:14px}
 .loading{text-align:center;padding:3rem;color:var(--text3);font-size:14px}
 .section-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1rem}
@@ -104,7 +106,7 @@ let voteFilter = 'all';
 
 // Full name lookup — extended with historical members
 const FULL_NAMES = {
-  'Albi': 'Councilmember Anna Alarcon Albi',
+  'Albi': 'Councilmember Anna Albi',
   'Walsh': 'Councilmember Seth Walsh',
   'Johnson': 'Councilmember Scotty Johnson',
   'Cramerding': 'Councilmember Jeff Cramerding',
@@ -237,9 +239,9 @@ function render() {
         const others_no = (r.vote_no||[]).filter(m => m !== selectedMember);
         const minority = vtype === 'no' && others_no.length ? `<span style="color:var(--text3)"> · also no: ${others_no.join(', ')}</span>` : '';
         const legistarLink = r.legistar_url ? `<a href="${r.legistar_url}" target="_blank" style="font-size:12px;color:var(--accent);margin-left:8px;white-space:nowrap;font-weight:400">↗ Legistar</a>` : '';
-        const topics = r.tp ? r.tp.split('|').map(t => `<span class="stat-pill" style="background:var(--blue-bg);color:var(--blue-text);border:none">${t}</span>`).join('') : '';
-        const actionBadge = r.a ? `<span class="stat-pill" style="background:var(--bg2);color:var(--text2);border:1px solid var(--border)">${r.a}</span>` : '';
-        const geo = r.g ? r.g.split('|').filter(g => g && g !== 'citywide').map(g => `<span class="stat-pill" style="background:var(--green-bg);color:var(--green-text);border:none">${g}</span>`).join('') : '';
+        const topics = r.tp ? r.tp.split('|').map(t => `<span class="tag b-topic">${t}</span>`).join('') : '';
+        const actionBadge = r.a ? `<span class="tag b-action">${r.a}</span>` : '';
+        const geo = r.g ? r.g.split('|').filter(g => g && g !== 'citywide').map(g => `<span class="tag b-geo">${g}</span>`).join('') : '';
         const rawStatus = r.st || '';
         // Skip committee referral strings (all-caps, long)
         const showStatus = rawStatus && !(rawStatus === rawStatus.toUpperCase() && rawStatus.length > 20);
@@ -251,17 +253,15 @@ function render() {
           return 'b-pending';
         })();
         html += `<div class="vote-item">
-          <div class="vote-item-top">
+          <div class="card-header">
             <span class="vote-badge ${badgeClass}" style="flex-shrink:0;margin-top:2px">${badgeLabel}</span>
-            <div style="flex:1;min-width:0">
-              <div class="vote-item-title">${r.t || r.f}${legistarLink}${minority}</div>
-              ${r.sm ? `<div class="vote-item-summary">${r.sm}</div>` : ''}
-            </div>
-            <div style="font-size:12px;color:var(--text3);white-space:nowrap;flex-shrink:0;padding-top:2px">${r.d || ''}</div>
+            <div class="card-title">${r.t || r.f}${legistarLink}${minority}</div>
+            <div class="card-date">${r.d || ''}</div>
           </div>
-          <div class="vote-item-badges">
+          ${r.sm ? `<div class="card-summary">${r.sm}</div>` : ''}
+          <div class="card-footer">
             ${topics}${actionBadge}${geo}
-            ${showStatus ? `<span class="badge ${statusClass}">${rawStatus}</span>` : ''}
+            ${showStatus ? `<span class="tag ${statusClass}">${rawStatus}</span>` : ''}
           </div>
         </div>`;
       });
