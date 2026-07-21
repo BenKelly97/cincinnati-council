@@ -27,6 +27,31 @@ import anthropic
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 
+# ─── NETWORK ─────────────────────────────────────────────────────────────────
+
+def legistar_get(url, headers=None, timeout=30, max_retries=4):
+    for attempt in range(max_retries):
+        try:
+            resp = requests.get(url, headers=headers, timeout=timeout)
+            resp.raise_for_status()
+            return resp
+        except (requests.exceptions.ConnectionError,
+                requests.exceptions.Timeout,
+                requests.exceptions.ChunkedEncodingError) as e:
+            if attempt < max_retries - 1:
+                wait = 2 ** attempt
+                print(f"  [retry {attempt+1}/{max_retries-1}] {type(e).__name__} — waiting {wait}s...")
+                time.sleep(wait)
+            else:
+                raise
+        except requests.exceptions.HTTPError:
+            if resp.status_code in (429, 500, 502, 503, 504) and attempt < max_retries - 1:
+                wait = 2 ** attempt
+                print(f"  [retry {attempt+1}/{max_retries-1}] HTTP {resp.status_code} — waiting {wait}s...")
+                time.sleep(wait)
+            else:
+                raise
+
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
 import os
@@ -206,7 +231,7 @@ def fetch_page(cutoff_date, skip=0):
     date_str = cutoff_date.strftime('%Y-%m-%dT00:00:00')
     url = f"https://webapi.legistar.com/v1/cincinnatioh/matters?$top={PAGE_SIZE}&$skip={skip}&$filter=MatterIntroDate+ge+datetime'{date_str}'"
     headers = {"Accept": "application/xml"}
-    resp = requests.get(url, headers=headers, timeout=30)
+    resp = legistar_get(url, headers=headers, timeout=30)
     resp.raise_for_status()
     return resp.text
 
@@ -337,7 +362,7 @@ def fetch_recent_event_urls(cutoff_date):
     date_str = cutoff_date.strftime('%Y-%m-%dT00:00:00')
     while True:
         url = f"https://webapi.legistar.com/v1/cincinnatioh/events?$top={PAGE_SIZE}&$skip={skip}&$filter=EventDate+ge+datetime'{date_str}'"
-        resp = requests.get(url, timeout=30)
+        resp = legistar_get(url, timeout=30)
         resp.raise_for_status()
         data = resp.json()
         if not data:
@@ -354,7 +379,7 @@ def fetch_recent_event_urls(cutoff_date):
 
 def scrape_meeting(url):
     try:
-        resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+        resp = legistar_get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
         resp.raise_for_status()
     except:
         return {}
