@@ -577,7 +577,6 @@ def main():
             writer = csv.DictWriter(f, fieldnames=FIELDNAMES, extrasaction="ignore")
             writer.writeheader()
             writer.writerows(tagged_rows)
-        import os
         size_mb = os.path.getsize(OUTPUT_CSV) / 1024 / 1024
         print(f"Tagged-only CSV: {len(tagged_rows)} rows, {size_mb:.1f} MB")
 
