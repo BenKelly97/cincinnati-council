@@ -65,6 +65,23 @@ VOTES_FILE    = "votes_api.json"
 # Cutoff: pull items introduced in the last N days
 LOOKBACK_DAYS = 14
 
+# Cutoff for scraping meeting agenda pages to recover Legistar detail links.
+# Every run only looks at meetings since this many days ago; the link_map is
+# loaded from the existing JSON and accumulated across runs, so this does NOT
+# need to cover full history on every run — see FULL_LINK_BACKFILL below for
+# a one-time pass that seeds every meeting since the site's earliest data.
+LINKS_LOOKBACK_DAYS = 14
+
+# Set env var FULL_LINK_BACKFILL=1 (or pass --full-link-backfill) to scrape
+# every Council/committee meeting since LINK_BACKFILL_START instead of just
+# the last LINKS_LOOKBACK_DAYS. Only items that actually appeared on a
+# meeting agenda can get a link this way — Registrations, Statements,
+# Reports, Communications, and Presentations are typically filed with the
+# Clerk directly and never appear on a meeting agenda, so Legistar's website
+# never exposes a direct detail link for them; they will keep showing
+# without the "View on Legistar" button even after a full backfill.
+LINK_BACKFILL_START = "2018-01-01"
+
 PAGE_SIZE          = 1000
 DELAY_BETWEEN_ITEMS = 0.3
 DELAY_BETWEEN_PAGES = 1.0
@@ -431,8 +448,17 @@ def build_json(csv_rows, legistar_links, vote_lookup=None):
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
 
 def main():
+    import sys
+    full_backfill = os.environ.get("FULL_LINK_BACKFILL", "") == "1" or "--full-link-backfill" in sys.argv
+
     cutoff = datetime.today() - timedelta(days=LOOKBACK_DAYS)
     print(f"Cutoff date: {cutoff.strftime('%Y-%m-%d')} ({LOOKBACK_DAYS} days ago)")
+
+    if full_backfill:
+        links_cutoff = datetime.strptime(LINK_BACKFILL_START, "%Y-%m-%d")
+        print(f"FULL_LINK_BACKFILL enabled — will scrape every meeting since {LINK_BACKFILL_START}.")
+    else:
+        links_cutoff = datetime.today() - timedelta(days=LINKS_LOOKBACK_DAYS)
 
     # Load existing CSV
     print(f"\nLoading {EXISTING_CSV}...")
@@ -555,10 +581,10 @@ def main():
         size_mb = os.path.getsize(OUTPUT_CSV) / 1024 / 1024
         print(f"Tagged-only CSV: {len(tagged_rows)} rows, {size_mb:.1f} MB")
 
-    # Scrape Legistar links for recent meetings
-    print(f"\nFetching recent meeting URLs from API...")
-    event_urls = fetch_recent_event_urls(cutoff)
-    print(f"Found {len(event_urls)} recent meetings. Scraping for legislation links...")
+    # Scrape Legistar links for recent (or, in backfill mode, all historical) meetings
+    print(f"\nFetching meeting URLs from API since {links_cutoff.strftime('%Y-%m-%d')}...")
+    event_urls = fetch_recent_event_urls(links_cutoff)
+    print(f"Found {len(event_urls)} meetings. Scraping for legislation links...")
 
     # Load existing link map from JSON
     link_map = {}
@@ -572,12 +598,41 @@ def main():
     except:
         print("No existing JSON found, starting fresh.")
 
-    for i, url in enumerate(event_urls):
-        print(f"  [{i+1}/{len(event_urls)}] Scraping...", end="", flush=True)
+    # In backfill mode this loop can run for hundreds of meetings, so keep a
+    # checkpoint (scraped meeting URLs + links found so far) that a rerun can
+    # resume from if the job gets interrupted partway through.
+    LINK_CHECKPOINT_FILE = "link_backfill_checkpoint.json"
+    scraped_urls = set()
+    if full_backfill:
+        try:
+            with open(LINK_CHECKPOINT_FILE) as f:
+                ckpt = json.load(f)
+            scraped_urls = set(ckpt.get("scraped_urls", []))
+            link_map.update(ckpt.get("link_map", {}))
+            print(f"Resuming backfill: {len(scraped_urls)} meetings already scraped in a prior run.")
+        except FileNotFoundError:
+            pass
+
+    remaining = [u for u in event_urls if u not in scraped_urls]
+    if full_backfill and len(remaining) < len(event_urls):
+        print(f"Skipping {len(event_urls) - len(remaining)} already-scraped meetings, {len(remaining)} left.")
+
+    for i, url in enumerate(remaining):
+        print(f"  [{i+1}/{len(remaining)}] Scraping...", end="", flush=True)
         links = scrape_meeting(url)
         link_map.update(links)
+        scraped_urls.add(url)
         print(f" {len(links)} links")
         time.sleep(DELAY_HTML)
+
+        if full_backfill and (i + 1) % 50 == 0:
+            with open(LINK_CHECKPOINT_FILE, "w") as f:
+                json.dump({"scraped_urls": sorted(scraped_urls), "link_map": link_map}, f)
+            print(f"  [checkpoint saved: {len(scraped_urls)} meetings, {len(link_map)} links]")
+
+    if full_backfill:
+        with open(LINK_CHECKPOINT_FILE, "w") as f:
+            json.dump({"scraped_urls": sorted(scraped_urls), "link_map": link_map}, f)
 
     # Print tagging cost if any tagging happened
     try:

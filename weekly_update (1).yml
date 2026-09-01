@@ -1,0 +1,46 @@
+name: Council Data Update
+
+on:
+  schedule:
+    - cron: '0 21 * * 1,3,5'  # Monday, Wednesday, Friday at 5:00 PM ET (21:00 UTC during EDT)
+  workflow_dispatch:        # Also allows manual trigger from GitHub
+    inputs:
+      full_link_backfill:
+        description: 'Scrape every meeting since 2018 to backfill missing "View on Legistar" links (slow, one-time)'
+        type: boolean
+        default: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests anthropic beautifulsoup4
+
+      - name: Scrape latest vote data
+        run: python3 scrape_votes_api.py
+
+      - name: Run update pipeline
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FULL_LINK_BACKFILL: ${{ github.event.inputs.full_link_backfill == 'true' && '1' || '0' }}
+        run: python3 update_pipeline.py
+
+      - name: Commit and push updated files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add council_data.json cincinnati_agenda_items_complete.csv votes_api.json
+          [ -f link_backfill_checkpoint.json ] && git add link_backfill_checkpoint.json || true
+          git diff --staged --quiet || git commit -m "Weekly data update $(date +'%Y-%m-%d')"
+          git push
