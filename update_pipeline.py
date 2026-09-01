@@ -26,6 +26,9 @@ import xml.etree.ElementTree as ET
 import anthropic
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+CINCINNATI_TZ = ZoneInfo("America/New_York")
 
 # ─── NETWORK ─────────────────────────────────────────────────────────────────
 
@@ -656,7 +659,7 @@ def main():
         final_rows = [r for r in csv.DictReader(f) if r.get("tag_status") == "success"]
 
     json_records = build_json(final_rows, link_map, vote_lookup)
-    meta = {'_meta': True, 'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M')}
+    meta = {'_meta': True, 'last_updated': datetime.now(CINCINNATI_TZ).strftime('%Y-%m-%d %H:%M %Z')}
     output = [meta] + json_records
 
     with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
