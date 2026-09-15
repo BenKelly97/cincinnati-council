@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cincinnati City Council — Roll Call Votes</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#ffffff;
+  --bg2:#f7f6f3;
+  --bg3:#f0efe9;
+  --text:#1a1a18;
+  --text2:#5a5a55;
+  --text3:#9a9a92;
+  --border:#e0dfd8;
+  --border2:#c8c7be;
+  --blue-bg:#e8f0fb;
+  --blue-text:#1a4a8a;
+  --green-bg:#e6f4ec;
+  --green-text:#1a5c35;
+  --red-bg:#fceaea;
+  --red-text:#8a1a1a;
+  --amber-bg:#fef3e2;
+  --amber-text:#7a4a0a;
+  --accent:#2255cc;
+  --navy:#0a2240;
+  --navy2:#12335c;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1c1c1a;
+    --bg2:#242422;
+    --bg3:#2c2c28;
+    --text:#f0efe8;
+    --text2:#a0a098;
+    --text3:#606058;
+    --border:#3a3a35;
+    --border2:#4a4a45;
+    --blue-bg:#0d2040;
+    --blue-text:#7aaaf0;
+    --green-bg:#0d2a18;
+    --green-text:#6acf96;
+    --red-bg:#2a0d0d;
+    --red-text:#f08080;
+    --amber-bg:#2a1a06;
+    --amber-text:#f0c070;
+    --accent:#6699ff;
+    --navy:#050f1e;
+    --navy2:#0a1c33;
+  }
+}
+body{font-family:Georgia,'Times New Roman',serif;background:var(--bg3);color:var(--text);min-height:100vh;font-size:15px;line-height:1.55}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.shell{max-width:800px;margin:0 auto;padding:0 1rem}
+
+/* Record notice bar — modeled on Boston's trust banner, but honest about what this site is */
+.notice-bar{background:var(--navy);color:#dbe6f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
+.notice-inner{max-width:800px;margin:0 auto;padding:6px 1rem;display:flex;align-items:center;gap:8px;font-size:12px}
+.notice-bar strong{color:#fff}
+
+header{background:var(--navy2);color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;border-bottom:3px solid var(--accent)}
+.header-inner{padding:1.1rem 0 1.3rem}
+.crumb{font-size:12px;color:#a9bedd;margin-bottom:6px}
+.crumb a{color:#a9bedd}
+h1{font-size:22px;font-weight:600;letter-spacing:-0.01em;margin-bottom:4px}
+.subtitle{font-size:13px;color:#b9cbe8}
+.nav-links{margin-top:10px;display:flex;gap:14px;font-size:13px}
+.nav-links a{color:#dbe6f5}
+
+main{padding:1.5rem 0 3rem;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
+
+/* Search */
+.search-bar{background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:0 12px;display:flex;align-items:center;gap:8px;margin-bottom:0.75rem}
+.search-bar:focus-within{border-color:var(--accent)}
+.search-bar input{flex:1;border:none;outline:none;background:transparent;font-size:14px;color:var(--text);padding:10px 0;font-family:inherit}
+.search-hint{font-size:12px;color:var(--text3);margin-bottom:1.25rem}
+.result-count{font-size:13px;color:var(--text2);margin-bottom:1rem}
+.result-count strong{color:var(--text)}
+
+/* Docket card — Boston-style: subject line, then Description, then Votes */
+.docket{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:18px 20px;margin-bottom:14px}
+.docket-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
+.docket-num{font-size:13px;font-weight:600;color:var(--text2)}
+.docket-date{font-size:12px;color:var(--text3);white-space:nowrap}
+.docket-subject{font-size:16px;font-weight:600;color:var(--text);line-height:1.35;margin-bottom:10px;font-family:Georgia,serif}
+
+.section-label{font-size:11px;font-weight:700;text-transform:none;color:var(--text2);letter-spacing:0.02em;margin-bottom:4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
+.description-text{font-size:13.5px;color:var(--text2);line-height:1.6;margin-bottom:14px}
+.outcome-line{font-size:13.5px;color:var(--text);margin-bottom:14px;font-style:italic}
+
+.vote-table{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;border-top:1px solid var(--border);padding-top:10px}
+.vote-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 16px}
+.vote-row{display:flex;justify-content:space-between;font-size:13px;padding:2px 0;border-bottom:1px dotted var(--border)}
+.vote-name{color:var(--text)}
+.vote-val{font-weight:600}
+.v-yes{color:var(--green-text)}
+.v-no{color:var(--red-text)}
+.v-abstain{color:var(--amber-text)}
+.v-absent{color:var(--text3);font-weight:400}
+.v-excused{color:var(--text3);font-weight:400}
+
+.legistar-link{font-size:12px;margin-top:12px;display:inline-block}
+
+/* Pagination — numbered, Boston-style */
+.pagination{display:flex;align-items:center;justify-content:center;gap:4px;margin-top:1.5rem;flex-wrap:wrap;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
+.page-btn{padding:5px 11px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:13px;cursor:pointer}
+.page-btn:hover:not(:disabled){background:var(--bg2)}
+.page-btn:disabled{opacity:0.35;cursor:default}
+.page-btn.active{background:var(--navy2);color:#fff;border-color:var(--navy2)}
+.page-info{font-size:13px;color:var(--text2);padding:0 4px}
+
+.loading,.empty{text-align:center;padding:3rem;color:var(--text3);font-size:14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
+.error-box{background:var(--red-bg);color:var(--red-text);border:1px solid;border-radius:6px;padding:1rem 1.25rem;font-size:14px;margin-bottom:1rem;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
+
+@media(max-width:600px){
+  .vote-grid{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="notice-bar">
+  <div class="notice-inner">
+    <span>&#128196;</span>
+    <span><strong>Independent legislative record</strong> — not an official City of Cincinnati site. Data sourced directly from Legistar.</span>
+  </div>
+</div>
+
+<header>
+  <div class="shell header-inner">
+    <div class="crumb"><a href="index.html">Cincinnati City Council</a> &rsaquo; Roll Call Votes</div>
+    <h1>Roll Call Votes</h1>
+    <div class="subtitle">Every recorded item with an individual member vote breakdown, sourced from Legistar.</div>
+    <div class="nav-links">
+      <a href="index.html">&larr; All Legislation</a>
+      <a href="members.html">Member Records</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="shell">
+
+    <div id="error-box" class="error-box" style="display:none"></div>
+
+    <div class="search-bar">
+      <input type="text" id="search" placeholder="Search by file number or subject" oninput="onSearch()">
+    </div>
+    <div class="search-hint">Search matches file number, title, and summary text.</div>
+
+    <div class="result-count" id="result-count"></div>
+    <div id="results"><div class="loading">Loading records&hellip;</div></div>
+    <div class="pagination" id="pagination"></div>
+
+  </div>
+</main>
+
+<script>
+const PAGE_SIZE = 8;
+let ALL = [];
+let filtered = [];
+let page = 0;
+
+function memberList(r) {
+  const groups = [
+    {arr: r.vote_yes, label: 'Yes', cls: 'v-yes'},
+    {arr: r.vote_no, label: 'No', cls: 'v-no'},
+    {arr: r.vote_abstain, label: 'Abstain', cls: 'v-abstain'},
+    {arr: r.vote_absent, label: 'Absent', cls: 'v-absent'},
+    {arr: r.vote_excused, label: 'Excused', cls: 'v-excused'},
+  ];
+  const rows = [];
+  groups.forEach(g => (g.arr || []).forEach(name => rows.push({name, label: g.label, cls: g.cls})));
+  rows.sort((a, b) => a.name.localeCompare(b.name));
+  return rows;
+}
+
+function outcomeLine(r) {
+  const yes = (r.vote_yes || []).length;
+  const no = (r.vote_no || []).length;
+  const parts = [`${yes} yea${yes === 1 ? '' : 's'}`];
+  if (no) parts.push(`${no} nay${no === 1 ? '' : 's'}`);
+  const passed = r.st && /pass|adopt|confirm/i.test(r.st);
+  const failed = r.st && /fail|postpone/i.test(r.st);
+  const verb = passed ? 'passed' : failed ? 'failed' : (r.st || 'recorded');
+  return `Result: ${verb} — ${parts.join(', ')}.`;
+}
+
+function render() {
+  const start = page * PAGE_SIZE;
+  const slice = filtered.slice(start, start + PAGE_SIZE);
+  document.getElementById('result-count').innerHTML =
+    `<strong>${filtered.length.toLocaleString()}</strong> roll call vote${filtered.length === 1 ? '' : 's'}`;
+
+  const res = document.getElementById('results');
+  if (filtered.length === 0) {
+    res.innerHTML = '<div class="empty">No matching roll call votes</div>';
+    document.getElementById('pagination').innerHTML = '';
+    return;
+  }
+
+  res.innerHTML = slice.map(r => {
+    const rows = memberList(r);
+    const voteHtml = rows.map(v =>
+      `<div class="vote-row"><span class="vote-name">${v.name}</span><span class="vote-val ${v.cls}">${v.label}</span></div>`
+    ).join('');
+    const legistarLink = r.legistar_url
+      ? `<a class="legistar-link" href="${r.legistar_url}" target="_blank">&#8599; View on Legistar</a>`
+      : '';
+    return `<div class="docket">
+      <div class="docket-top">
+        <span class="docket-num">File #${r.f || '—'}</span>
+        <span class="docket-date">${r.d || ''}</span>
+      </div>
+      <div class="docket-subject">${r.t || r.rt || '(untitled)'}</div>
+      <div class="section-label">Description</div>
+      <div class="description-text">${r.sm || r.rt || 'No description on file.'}</div>
+      <div class="outcome-line">${outcomeLine(r)}</div>
+      <div class="vote-table">
+        <div class="section-label">Votes</div>
+        <div class="vote-grid">${voteHtml}</div>
+      </div>
+      ${legistarLink}
+    </div>`;
+  }).join('');
+
+  renderPagination();
+}
+
+function renderPagination() {
+  const total = Math.ceil(filtered.length / PAGE_SIZE);
+  const pag = document.getElementById('pagination');
+  if (total <= 1) { pag.innerHTML = ''; return; }
+  let html = `<button class="page-btn" onclick="goPage(${page - 1})" ${page === 0 ? 'disabled' : ''}>&larr; Prev</button>`;
+  const range = [];
+  for (let i = 0; i < total; i++) {
+    if (i === 0 || i === total - 1 || Math.abs(i - page) <= 2) range.push(i);
+    else if (range[range.length - 1] !== '…') range.push('…');
+  }
+  range.forEach(i => {
+    html += i === '…'
+      ? `<span class="page-info">…</span>`
+      : `<button class="page-btn ${i === page ? 'active' : ''}" onclick="goPage(${i})">${i + 1}</button>`;
+  });
+  html += `<button class="page-btn" onclick="goPage(${page + 1})" ${page >= total - 1 ? 'disabled' : ''}>Next &rarr;</button>`;
+  pag.innerHTML = html;
+}
+
+function goPage(p) {
+  page = p;
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function onSearch() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  filtered = !q ? ALL.slice() : ALL.filter(r =>
+    (r.f || '').toLowerCase().includes(q) ||
+    (r.t || '').toLowerCase().includes(q) ||
+    (r.sm || '').toLowerCase().includes(q)
+  );
+  page = 0;
+  render();
+}
+
+async function loadData() {
+  try {
+    const resp = await fetch('council_data.json');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const raw = await resp.json();
+    if (raw[0] && raw[0]._meta) raw.shift();
+    // Only items with a recorded vote breakdown belong on this page
+    ALL = raw.filter(r => r.vote_yes && r.vote_yes.length);
+    ALL.sort((a, b) => (b.d || '').localeCompare(a.d || ''));
+    filtered = ALL.slice();
+    render();
+  } catch (e) {
+    document.getElementById('error-box').style.display = 'block';
+    document.getElementById('error-box').textContent =
+      'Could not load data file. Make sure council_data.json is in the same folder as votes.html. Error: ' + e.message;
+    document.getElementById('results').innerHTML = '';
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>
