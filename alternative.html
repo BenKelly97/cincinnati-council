@@ -209,6 +209,12 @@ select.plain-select{border:1px solid var(--border);padding:9px 11px;font-size:14
 
 <script>
 const PAGE_SIZE = 8;
+// Only these are real sponsors for filtering/display purposes — City Manager
+// submissions and committee-level referrals aren't individual sponsorships.
+const COUNCIL_MEMBERS = new Set(['Albi','Cramerding','James','Jeffreys','Johnson','Kearney','Nolan','Owens','Walsh']);
+function isMemberSponsor(name) {
+  return !!name && COUNCIL_MEMBERS.has(name.trim());
+}
 let ALL = [];
 let filtered = [];
 let page = 0;
@@ -267,7 +273,7 @@ function applyFilters() {
       const hay = `${r.f || ''} ${r.t || ''} ${r.sm || ''}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
-    if (sponsor && r.rq !== sponsor) return false;
+    if (sponsor && (!isMemberSponsor(r.rq) || r.rq.trim() !== sponsor)) return false;
     if (selTags.length) {
       const itemTags = (r.tp || '').split('|').map(t => t.trim()).filter(Boolean);
       if (mode === 'and') {
@@ -320,7 +326,7 @@ function render() {
         <div class="docket-main">
           <div class="docket-num">File #${r.f || '—'}</div>
           <div class="docket-subject">${r.t || r.rt || '(untitled)'}</div>
-          <div class="docket-date">${r.d || ''}${r.rq ? ' &middot; Sponsor: ' + r.rq : ''}</div>
+          <div class="docket-date">${r.d || ''}${isMemberSponsor(r.rq) ? ' &middot; Sponsor: ' + r.rq : ''}</div>
         </div>
         <div class="chevron">&#9662;</div>
       </div>
@@ -375,7 +381,7 @@ function populateFilterOptions() {
   const sponsorSet = new Set();
   ALL.forEach(r => {
     (r.tp || '').split('|').map(t => t.trim()).filter(Boolean).forEach(t => tagSet.add(t));
-    if (r.rq) sponsorSet.add(r.rq);
+    if (isMemberSponsor(r.rq)) sponsorSet.add(r.rq.trim());
   });
   allTags = Array.from(tagSet).sort();
   const tagOptions = document.getElementById('tag-options');
