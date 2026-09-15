@@ -7,123 +7,153 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#ffffff;
-  --bg2:#f0f0f0;
+  --page-bg:#e9e9e7;
+  --card-bg:#f4f4f2;
+  --card-bg-hover:#ececea;
   --text:#1b1b1b;
-  --text2:#565c65;
-  --border:#dcdee0;
-  --link:#005ea2;
-  --link-visited:#54278f;
-  --banner-bg:#f0f0f0;
+  --text2:#4a4a48;
+  --text3:#8a8a86;
+  --border:#d8d8d4;
+  --red:#c8102e;
+  --navy:#0a2240;
+  --serif-link:#3a5a95;
 }
 @media(prefers-color-scheme:dark){
   :root{
-    --bg:#12100e;
-    --bg2:#1c1a17;
-    --text:#f0f0f0;
-    --text2:#a9adb1;
-    --border:#3a3a38;
-    --link:#73b3e7;
-    --link-visited:#c3a4e8;
-    --banner-bg:#1c1a17;
+    --page-bg:#161512;
+    --card-bg:#211f1c;
+    --card-bg-hover:#28261f;
+    --text:#f0efe8;
+    --text2:#b8b6ae;
+    --text3:#8a8a82;
+    --border:#3a3834;
+    --red:#e0435c;
+    --navy:#0d1f38;
+    --serif-link:#8fa9d9;
   }
 }
-body{font-family:'Segoe UI',system-ui,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:16px;line-height:1.5}
-a{color:var(--link)}
-a:visited{color:var(--link-visited)}
-.shell{max-width:820px;margin:0 auto;padding:0 1rem}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--page-bg);color:var(--text);min-height:100vh;font-size:16px;line-height:1.5}
+a{color:var(--serif-link)}
+.shell{max-width:900px;margin:0 auto;padding:0 1.25rem}
 
-.gov-banner{background:var(--banner-bg);border-bottom:1px solid var(--border);font-size:13px}
-.gov-banner-inner{max-width:820px;margin:0 auto;padding:6px 1rem;display:flex;align-items:center;gap:6px}
+/* Honesty strip — replaces the .gov trust badge, same visual weight */
+.notice{background:var(--navy);color:#cfe0f5;font-size:12.5px;text-align:center;padding:5px 1rem}
 
-header{border-bottom:1px solid var(--border);padding:14px 0}
-.breadcrumb{font-size:13px;color:var(--text2);margin-bottom:10px}
-.breadcrumb a{text-decoration:none}
-.breadcrumb a:hover{text-decoration:underline}
-h1{font-size:32px;font-weight:700;margin-bottom:6px;letter-spacing:-0.01em}
-.dek{font-size:15px;color:var(--text2);max-width:640px}
-.page-links{margin-top:10px;font-size:14px}
-.page-links a{margin-right:18px}
+/* Top brand bar, modeled on the CITY of BOSTON header */
+.topbar{background:var(--card-bg);border-bottom:1px solid var(--border)}
+.topbar-inner{display:flex;align-items:center;gap:18px;padding:14px 0;flex-wrap:wrap}
+.menu-badge{background:var(--red);color:#fff;font-size:11px;font-weight:700;letter-spacing:0.04em;padding:10px 14px;display:flex;flex-direction:column;align-items:center;gap:3px;line-height:1;cursor:pointer;text-decoration:none}
+.menu-badge .bars{font-size:14px;letter-spacing:2px}
+.wordmark{font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:700;color:var(--text);white-space:nowrap}
+.wordmark em{font-style:italic;font-weight:400;color:var(--text2);margin:0 4px}
+.divider{width:1px;height:34px;background:var(--border)}
+.tagline{font-family:Georgia,serif;font-style:italic;font-size:16px;color:var(--text2)}
+.topnav{margin-left:auto;display:flex;gap:22px;font-size:12.5px;letter-spacing:0.06em;text-transform:uppercase}
+.topnav a{color:var(--text);text-decoration:none}
+.topnav a:hover{text-decoration:underline}
 
-main{padding:1.5rem 0 2.5rem}
+/* Sub-nav bar */
+.subnav{background:var(--navy)}
+.subnav-inner{display:flex;gap:28px;padding:0 1.25rem;max-width:900px;margin:0 auto}
+.subnav a{color:#b9c9e0;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;text-decoration:none;padding:14px 2px;display:inline-block;border-bottom:2px solid transparent}
+.subnav a.active{color:#fff;border-bottom-color:var(--red)}
 
-/* Search + filter block */
+main{padding:2rem 0 3rem}
+
+/* Search + filters */
 .search-block{margin-bottom:1rem}
-.search-block label{display:block;font-weight:700;font-size:15px;margin-bottom:6px}
-.search-bar{border:1px solid #565c65;display:flex;max-width:520px}
-.search-bar input{flex:1;border:none;outline:none;background:var(--bg);color:var(--text);font-size:15px;padding:9px 10px;font-family:inherit}
+.search-block label{display:block;font-weight:700;font-size:14px;margin-bottom:6px}
+.search-bar{border:1px solid var(--border);display:flex;max-width:520px;background:var(--card-bg)}
+.search-bar input{flex:1;border:none;outline:none;background:transparent;color:var(--text);font-size:15px;padding:10px 12px;font-family:inherit}
 
-.filter-row{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:1.5rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)}
+.filter-row{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:2rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border)}
 .filter-col{min-width:220px}
 .filter-col > label{display:block;font-weight:700;font-size:14px;margin-bottom:6px}
 
 .tag-dropdown{position:relative}
-.tag-dropdown summary{list-style:none;cursor:pointer;border:1px solid #565c65;padding:8px 10px;font-size:14px;background:var(--bg);color:var(--text);max-width:280px;display:flex;justify-content:space-between;align-items:center}
+.tag-dropdown summary{list-style:none;cursor:pointer;border:1px solid var(--border);padding:9px 11px;font-size:14px;background:var(--card-bg);color:var(--text);max-width:280px;display:flex;justify-content:space-between;align-items:center}
 .tag-dropdown summary::-webkit-details-marker{display:none}
-.tag-dropdown summary::after{content:'▾';margin-left:8px}
+.tag-dropdown summary::after{content:'▾';margin-left:8px;color:var(--text3)}
 .tag-dropdown[open] summary::after{content:'▴'}
-.tag-panel{position:absolute;top:100%;left:0;background:var(--bg);border:1px solid var(--border);padding:10px;z-index:10;min-width:260px;max-height:280px;overflow-y:auto;box-shadow:0 2px 6px rgba(0,0,0,0.12)}
+.tag-panel{position:absolute;top:100%;left:0;background:var(--card-bg);border:1px solid var(--border);padding:10px;z-index:10;min-width:260px;max-height:280px;overflow-y:auto;box-shadow:0 4px 14px rgba(0,0,0,0.15)}
 .tag-mode{display:flex;gap:14px;font-size:13px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)}
 .tag-mode label{display:flex;align-items:center;gap:4px;font-weight:400}
 .tag-option{display:flex;align-items:center;gap:6px;font-size:13.5px;padding:3px 0}
 .tag-option label{cursor:pointer}
 
-select.plain-select{border:1px solid #565c65;padding:8px 10px;font-size:14px;background:var(--bg);color:var(--text);max-width:280px;width:100%;font-family:inherit}
+select.plain-select{border:1px solid var(--border);padding:9px 11px;font-size:14px;background:var(--card-bg);color:var(--text);max-width:280px;width:100%;font-family:inherit}
 
-.clear-link{font-size:13px;background:none;border:none;color:var(--link);cursor:pointer;text-decoration:underline;padding:0;align-self:flex-end}
+.clear-link{font-size:13px;background:none;border:none;color:var(--serif-link);cursor:pointer;text-decoration:underline;padding:0;align-self:flex-end}
 
-.section-heading{font-size:20px;font-weight:700;margin-bottom:1rem;padding-bottom:6px;border-bottom:2px solid var(--text)}
-.result-count{font-size:14px;color:var(--text2);margin-bottom:1rem}
+.result-count{font-size:13px;color:var(--text3);margin-bottom:1rem}
 
-.docket{padding:20px 0;border-bottom:1px solid var(--border)}
-.docket-num{font-weight:700;font-size:16px}
-.docket-subject{font-size:15px;margin:2px 0 4px}
-.docket-date{font-size:13px;color:var(--text2);margin-bottom:12px}
-.field-heading{font-weight:700;font-size:14px;margin-bottom:4px;margin-top:12px}
+/* Docket accordion cards */
+.docket{background:var(--card-bg);border-radius:6px;padding:22px 26px;margin-bottom:18px;cursor:pointer;transition:background 0.12s}
+.docket:hover{background:var(--card-bg-hover)}
+.docket-head{display:flex;align-items:flex-start;gap:14px}
+.docket-main{flex:1;min-width:0}
+.docket-num{font-family:Georgia,serif;font-weight:700;font-size:19px;color:var(--serif-link);margin-bottom:4px}
+.docket-subject{font-family:Georgia,serif;font-style:italic;font-size:19px;color:var(--serif-link);line-height:1.35;margin-bottom:10px}
+.docket-date{font-size:13.5px;color:var(--text2)}
+.docket-sponsor{font-size:13.5px;color:var(--text2)}
+.chevron{font-size:16px;color:var(--text3);margin-top:6px;transition:transform 0.15s;flex-shrink:0}
+.docket.expanded .chevron{transform:rotate(180deg)}
+.docket-body{display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.docket.expanded .docket-body{display:block}
+.tag-chip{display:inline-block;font-size:11.5px;color:var(--text2);background:var(--page-bg);border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin:0 6px 6px 0}
+.field-heading{font-weight:700;font-size:13.5px;margin-bottom:4px;margin-top:12px}
 .field-body{font-size:14px;line-height:1.6;color:var(--text)}
-.outcome{font-size:14px;margin-top:6px}
-.vote-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:2px 20px;font-size:14px;margin-top:4px}
+.outcome{font-size:14px;margin-top:8px;font-style:italic;color:var(--text2)}
+.vote-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:2px 20px;font-size:13.5px;margin-top:4px}
 .vote-list div{padding:2px 0}
-.vote-list .name{font-weight:700}
-.legistar-line{font-size:13px;margin-top:10px}
-.tag-chip{display:inline-block;font-size:12px;color:var(--text2);margin-right:8px}
+.vote-list .name{font-weight:600}
+.legistar-line{font-size:13px;margin-top:12px}
+.legistar-line a{text-decoration:none}
+.legistar-line a:hover{text-decoration:underline}
 
-.pagination{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:2rem;font-size:14px;flex-wrap:wrap}
-.pagination button{background:none;border:none;color:var(--link);cursor:pointer;font-size:14px;padding:0;font-family:inherit}
-.pagination button:disabled{color:var(--text2);cursor:default}
+.pagination{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:2rem;font-size:14px;flex-wrap:wrap}
+.pagination button{background:none;border:none;color:var(--serif-link);cursor:pointer;font-size:14px;padding:0;font-family:inherit}
+.pagination button:disabled{color:var(--text3);cursor:default}
 .pagination .current{font-weight:700;color:var(--text)}
 
-.loading,.empty{text-align:center;padding:3rem;color:var(--text2);font-size:14px}
-.error-box{background:#f4e3db;color:#8b3a1c;border:1px solid #b0410e;padding:1rem 1.25rem;font-size:14px;margin-bottom:1rem}
+.loading,.empty{text-align:center;padding:3rem;color:var(--text3);font-size:14px}
+.error-box{background:#f4e3db;color:#8b3a1c;border:1px solid #b0410e;padding:1rem 1.25rem;font-size:14px;margin-bottom:1rem;border-radius:6px}
 
 .related-footer{border-top:1px solid var(--border);margin-top:2.5rem;padding-top:1.25rem}
-.related-footer h2{font-size:16px;margin-bottom:8px}
+.related-footer h2{font-family:Georgia,serif;font-size:17px;margin-bottom:10px}
 .related-footer ul{list-style:none}
 .related-footer li{margin-bottom:6px;font-size:14px}
 
-@media(max-width:600px){
+@media(max-width:640px){
   .vote-list{grid-template-columns:1fr 1fr}
-  h1{font-size:26px}
+  .wordmark{font-size:20px}
+  .topnav{display:none}
 }
 </style>
 </head>
 <body>
 
-<div class="gov-banner">
-  <div class="gov-banner-inner">
-    <span>&#128274;</span>
-    <span>Independent legislative record, not an official City of Cincinnati page. Data sourced from Legistar.</span>
+<div class="notice">Independent legislative record, not an official City of Cincinnati page. Data sourced from Legistar.</div>
+
+<div class="topbar">
+  <div class="shell topbar-inner">
+    <a class="menu-badge" href="index.html"><span class="bars">&#9776;</span>MENU</a>
+    <div class="wordmark">COUNCIL <em>of</em> CINCINNATI</div>
+    <div class="divider"></div>
+    <div class="tagline">Legislative Record</div>
+    <div class="topnav">
+      <a href="index.html">All Legislation</a>
+      <a href="members.html">Member Records</a>
+    </div>
   </div>
 </div>
 
-<header>
-  <div class="shell">
-    <div class="breadcrumb"><a href="index.html">Cincinnati City Council</a> &rsaquo; City Council Roll Call Votes</div>
-    <h1>City Council Roll Call Votes</h1>
-    <div class="dek">We have current and historical information related to City Council roll call votes. You can search by subject, file number, tag, or sponsor.</div>
-    <div class="page-links"><a href="index.html">All Legislation</a><a href="members.html">Member Records</a></div>
+<div class="subnav">
+  <div class="subnav-inner">
+    <a class="active" href="#">Roll Call Search</a>
+    <a href="#related">Related Links</a>
   </div>
-</header>
+</div>
 
 <main>
   <div class="shell">
@@ -162,12 +192,11 @@ select.plain-select{border:1px solid #565c65;padding:8px 10px;font-size:14px;bac
       <button class="clear-link" onclick="clearFilters()">Clear all filters</button>
     </div>
 
-    <div class="section-heading">Roll Call Votes</div>
     <div class="result-count" id="result-count"></div>
     <div id="results"><div class="loading">Loading records&hellip;</div></div>
     <div class="pagination" id="pagination"></div>
 
-    <div class="related-footer">
+    <div class="related-footer" id="related">
       <h2>Related links</h2>
       <ul>
         <li><a href="https://cincinnatioh.legistar.com/Calendar.aspx" target="_blank">City Council Meeting Minutes and Agendas</a></li>
@@ -215,11 +244,9 @@ function outcomeLine(r) {
 function getSelectedTags() {
   return Array.from(document.querySelectorAll('#tag-options input[type=checkbox]:checked')).map(el => el.value);
 }
-
 function getTagMode() {
   return document.querySelector('input[name="tag-mode"]:checked').value;
 }
-
 function updateTagSummary() {
   const sel = getSelectedTags();
   const mode = getTagMode();
@@ -255,7 +282,6 @@ function applyFilters() {
   updateTagSummary();
   render();
 }
-
 function onFilterChange() { applyFilters(); }
 
 function clearFilters() {
@@ -279,7 +305,7 @@ function render() {
     return;
   }
 
-  res.innerHTML = slice.map(r => {
+  res.innerHTML = slice.map((r, idx) => {
     const rows = memberList(r);
     const voteHtml = rows.map(v =>
       `<div><span class="name">${v.name}:</span> ${v.label}</div>`
@@ -289,21 +315,32 @@ function render() {
     const legistarLink = r.legistar_url
       ? `<div class="legistar-line"><a href="${r.legistar_url}" target="_blank">View on Legistar &rsaquo;</a></div>`
       : '';
-    return `<div class="docket">
-      <div class="docket-num">File #${r.f || '—'}</div>
-      <div class="docket-subject">${r.t || r.rt || '(untitled)'}</div>
-      <div class="docket-date">${r.d || ''}${r.rq ? ' &middot; Sponsor: ' + r.rq : ''}</div>
-      ${tagsHtml ? `<div>${tagsHtml}</div>` : ''}
-      <div class="field-heading">Description:</div>
-      <div class="field-body">${r.sm || r.rt || 'No description on file.'}</div>
-      <div class="outcome">${outcomeLine(r)}</div>
-      <div class="field-heading">Votes:</div>
-      <div class="vote-list">${voteHtml}</div>
-      ${legistarLink}
+    return `<div class="docket" onclick="toggleCard(this)">
+      <div class="docket-head">
+        <div class="docket-main">
+          <div class="docket-num">File #${r.f || '—'}</div>
+          <div class="docket-subject">${r.t || r.rt || '(untitled)'}</div>
+          <div class="docket-date">${r.d || ''}${r.rq ? ' &middot; Sponsor: ' + r.rq : ''}</div>
+        </div>
+        <div class="chevron">&#9662;</div>
+      </div>
+      <div class="docket-body">
+        ${tagsHtml ? `<div>${tagsHtml}</div>` : ''}
+        <div class="field-heading">Description:</div>
+        <div class="field-body">${r.sm || r.rt || 'No description on file.'}</div>
+        <div class="outcome">${outcomeLine(r)}</div>
+        <div class="field-heading">Votes:</div>
+        <div class="vote-list">${voteHtml}</div>
+        ${legistarLink}
+      </div>
     </div>`;
   }).join('');
 
   renderPagination();
+}
+
+function toggleCard(el) {
+  el.classList.toggle('expanded');
 }
 
 function renderPagination() {
@@ -374,7 +411,6 @@ async function loadData() {
   }
 }
 
-// Close tag dropdown when clicking outside it
 document.addEventListener('click', (e) => {
   const dd = document.getElementById('tag-dropdown');
   if (dd.open && !dd.contains(e.target)) dd.removeAttribute('open');
