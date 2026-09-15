@@ -3,140 +3,125 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cincinnati City Council — Roll Call Votes</title>
+<title>City Council Roll Call Votes</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#ffffff;
-  --bg2:#f7f6f3;
-  --bg3:#f0efe9;
-  --text:#1a1a18;
-  --text2:#5a5a55;
-  --text3:#9a9a92;
-  --border:#e0dfd8;
-  --border2:#c8c7be;
-  --blue-bg:#e8f0fb;
-  --blue-text:#1a4a8a;
-  --green-bg:#e6f4ec;
-  --green-text:#1a5c35;
-  --red-bg:#fceaea;
-  --red-text:#8a1a1a;
-  --amber-bg:#fef3e2;
-  --amber-text:#7a4a0a;
-  --accent:#2255cc;
-  --navy:#0a2240;
-  --navy2:#12335c;
+  --bg2:#f0f0f0;
+  --text:#1b1b1b;
+  --text2:#565c65;
+  --border:#dcdee0;
+  --link:#005ea2;
+  --link-visited:#54278f;
+  --banner-bg:#f0f0f0;
 }
 @media(prefers-color-scheme:dark){
   :root{
-    --bg:#1c1c1a;
-    --bg2:#242422;
-    --bg3:#2c2c28;
-    --text:#f0efe8;
-    --text2:#a0a098;
-    --text3:#606058;
-    --border:#3a3a35;
-    --border2:#4a4a45;
-    --blue-bg:#0d2040;
-    --blue-text:#7aaaf0;
-    --green-bg:#0d2a18;
-    --green-text:#6acf96;
-    --red-bg:#2a0d0d;
-    --red-text:#f08080;
-    --amber-bg:#2a1a06;
-    --amber-text:#f0c070;
-    --accent:#6699ff;
-    --navy:#050f1e;
-    --navy2:#0a1c33;
+    --bg:#12100e;
+    --bg2:#1c1a17;
+    --text:#f0f0f0;
+    --text2:#a9adb1;
+    --border:#3a3a38;
+    --link:#73b3e7;
+    --link-visited:#c3a4e8;
+    --banner-bg:#1c1a17;
   }
 }
-body{font-family:Georgia,'Times New Roman',serif;background:var(--bg3);color:var(--text);min-height:100vh;font-size:15px;line-height:1.55}
-a{color:var(--accent);text-decoration:none}
-a:hover{text-decoration:underline}
-.shell{max-width:800px;margin:0 auto;padding:0 1rem}
+body{font-family:'Segoe UI',system-ui,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:16px;line-height:1.5}
+a{color:var(--link)}
+a:visited{color:var(--link-visited)}
+.shell{max-width:820px;margin:0 auto;padding:0 1rem}
 
-/* Record notice bar — modeled on Boston's trust banner, but honest about what this site is */
-.notice-bar{background:var(--navy);color:#dbe6f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
-.notice-inner{max-width:800px;margin:0 auto;padding:6px 1rem;display:flex;align-items:center;gap:8px;font-size:12px}
-.notice-bar strong{color:#fff}
+.gov-banner{background:var(--banner-bg);border-bottom:1px solid var(--border);font-size:13px}
+.gov-banner-inner{max-width:820px;margin:0 auto;padding:6px 1rem;display:flex;align-items:center;gap:6px}
 
-header{background:var(--navy2);color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;border-bottom:3px solid var(--accent)}
-.header-inner{padding:1.1rem 0 1.3rem}
-.crumb{font-size:12px;color:#a9bedd;margin-bottom:6px}
-.crumb a{color:#a9bedd}
-h1{font-size:22px;font-weight:600;letter-spacing:-0.01em;margin-bottom:4px}
-.subtitle{font-size:13px;color:#b9cbe8}
-.nav-links{margin-top:10px;display:flex;gap:14px;font-size:13px}
-.nav-links a{color:#dbe6f5}
+header{border-bottom:1px solid var(--border);padding:14px 0}
+.breadcrumb{font-size:13px;color:var(--text2);margin-bottom:10px}
+.breadcrumb a{text-decoration:none}
+.breadcrumb a:hover{text-decoration:underline}
+h1{font-size:32px;font-weight:700;margin-bottom:6px;letter-spacing:-0.01em}
+.dek{font-size:15px;color:var(--text2);max-width:640px}
+.page-links{margin-top:10px;font-size:14px}
+.page-links a{margin-right:18px}
 
-main{padding:1.5rem 0 3rem;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
+main{padding:1.5rem 0 2.5rem}
 
-/* Search */
-.search-bar{background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:0 12px;display:flex;align-items:center;gap:8px;margin-bottom:0.75rem}
-.search-bar:focus-within{border-color:var(--accent)}
-.search-bar input{flex:1;border:none;outline:none;background:transparent;font-size:14px;color:var(--text);padding:10px 0;font-family:inherit}
-.search-hint{font-size:12px;color:var(--text3);margin-bottom:1.25rem}
-.result-count{font-size:13px;color:var(--text2);margin-bottom:1rem}
-.result-count strong{color:var(--text)}
+/* Search + filter block */
+.search-block{margin-bottom:1rem}
+.search-block label{display:block;font-weight:700;font-size:15px;margin-bottom:6px}
+.search-bar{border:1px solid #565c65;display:flex;max-width:520px}
+.search-bar input{flex:1;border:none;outline:none;background:var(--bg);color:var(--text);font-size:15px;padding:9px 10px;font-family:inherit}
 
-/* Docket card — Boston-style: subject line, then Description, then Votes */
-.docket{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:18px 20px;margin-bottom:14px}
-.docket-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
-.docket-num{font-size:13px;font-weight:600;color:var(--text2)}
-.docket-date{font-size:12px;color:var(--text3);white-space:nowrap}
-.docket-subject{font-size:16px;font-weight:600;color:var(--text);line-height:1.35;margin-bottom:10px;font-family:Georgia,serif}
+.filter-row{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:1.5rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)}
+.filter-col{min-width:220px}
+.filter-col > label{display:block;font-weight:700;font-size:14px;margin-bottom:6px}
 
-.section-label{font-size:11px;font-weight:700;text-transform:none;color:var(--text2);letter-spacing:0.02em;margin-bottom:4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
-.description-text{font-size:13.5px;color:var(--text2);line-height:1.6;margin-bottom:14px}
-.outcome-line{font-size:13.5px;color:var(--text);margin-bottom:14px;font-style:italic}
+.tag-dropdown{position:relative}
+.tag-dropdown summary{list-style:none;cursor:pointer;border:1px solid #565c65;padding:8px 10px;font-size:14px;background:var(--bg);color:var(--text);max-width:280px;display:flex;justify-content:space-between;align-items:center}
+.tag-dropdown summary::-webkit-details-marker{display:none}
+.tag-dropdown summary::after{content:'▾';margin-left:8px}
+.tag-dropdown[open] summary::after{content:'▴'}
+.tag-panel{position:absolute;top:100%;left:0;background:var(--bg);border:1px solid var(--border);padding:10px;z-index:10;min-width:260px;max-height:280px;overflow-y:auto;box-shadow:0 2px 6px rgba(0,0,0,0.12)}
+.tag-mode{display:flex;gap:14px;font-size:13px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.tag-mode label{display:flex;align-items:center;gap:4px;font-weight:400}
+.tag-option{display:flex;align-items:center;gap:6px;font-size:13.5px;padding:3px 0}
+.tag-option label{cursor:pointer}
 
-.vote-table{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;border-top:1px solid var(--border);padding-top:10px}
-.vote-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 16px}
-.vote-row{display:flex;justify-content:space-between;font-size:13px;padding:2px 0;border-bottom:1px dotted var(--border)}
-.vote-name{color:var(--text)}
-.vote-val{font-weight:600}
-.v-yes{color:var(--green-text)}
-.v-no{color:var(--red-text)}
-.v-abstain{color:var(--amber-text)}
-.v-absent{color:var(--text3);font-weight:400}
-.v-excused{color:var(--text3);font-weight:400}
+select.plain-select{border:1px solid #565c65;padding:8px 10px;font-size:14px;background:var(--bg);color:var(--text);max-width:280px;width:100%;font-family:inherit}
 
-.legistar-link{font-size:12px;margin-top:12px;display:inline-block}
+.clear-link{font-size:13px;background:none;border:none;color:var(--link);cursor:pointer;text-decoration:underline;padding:0;align-self:flex-end}
 
-/* Pagination — numbered, Boston-style */
-.pagination{display:flex;align-items:center;justify-content:center;gap:4px;margin-top:1.5rem;flex-wrap:wrap;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
-.page-btn{padding:5px 11px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:13px;cursor:pointer}
-.page-btn:hover:not(:disabled){background:var(--bg2)}
-.page-btn:disabled{opacity:0.35;cursor:default}
-.page-btn.active{background:var(--navy2);color:#fff;border-color:var(--navy2)}
-.page-info{font-size:13px;color:var(--text2);padding:0 4px}
+.section-heading{font-size:20px;font-weight:700;margin-bottom:1rem;padding-bottom:6px;border-bottom:2px solid var(--text)}
+.result-count{font-size:14px;color:var(--text2);margin-bottom:1rem}
 
-.loading,.empty{text-align:center;padding:3rem;color:var(--text3);font-size:14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
-.error-box{background:var(--red-bg);color:var(--red-text);border:1px solid;border-radius:6px;padding:1rem 1.25rem;font-size:14px;margin-bottom:1rem;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
+.docket{padding:20px 0;border-bottom:1px solid var(--border)}
+.docket-num{font-weight:700;font-size:16px}
+.docket-subject{font-size:15px;margin:2px 0 4px}
+.docket-date{font-size:13px;color:var(--text2);margin-bottom:12px}
+.field-heading{font-weight:700;font-size:14px;margin-bottom:4px;margin-top:12px}
+.field-body{font-size:14px;line-height:1.6;color:var(--text)}
+.outcome{font-size:14px;margin-top:6px}
+.vote-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:2px 20px;font-size:14px;margin-top:4px}
+.vote-list div{padding:2px 0}
+.vote-list .name{font-weight:700}
+.legistar-line{font-size:13px;margin-top:10px}
+.tag-chip{display:inline-block;font-size:12px;color:var(--text2);margin-right:8px}
+
+.pagination{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:2rem;font-size:14px;flex-wrap:wrap}
+.pagination button{background:none;border:none;color:var(--link);cursor:pointer;font-size:14px;padding:0;font-family:inherit}
+.pagination button:disabled{color:var(--text2);cursor:default}
+.pagination .current{font-weight:700;color:var(--text)}
+
+.loading,.empty{text-align:center;padding:3rem;color:var(--text2);font-size:14px}
+.error-box{background:#f4e3db;color:#8b3a1c;border:1px solid #b0410e;padding:1rem 1.25rem;font-size:14px;margin-bottom:1rem}
+
+.related-footer{border-top:1px solid var(--border);margin-top:2.5rem;padding-top:1.25rem}
+.related-footer h2{font-size:16px;margin-bottom:8px}
+.related-footer ul{list-style:none}
+.related-footer li{margin-bottom:6px;font-size:14px}
 
 @media(max-width:600px){
-  .vote-grid{grid-template-columns:1fr 1fr}
+  .vote-list{grid-template-columns:1fr 1fr}
+  h1{font-size:26px}
 }
 </style>
 </head>
 <body>
 
-<div class="notice-bar">
-  <div class="notice-inner">
-    <span>&#128196;</span>
-    <span><strong>Independent legislative record</strong> — not an official City of Cincinnati site. Data sourced directly from Legistar.</span>
+<div class="gov-banner">
+  <div class="gov-banner-inner">
+    <span>&#128274;</span>
+    <span>Independent legislative record, not an official City of Cincinnati page. Data sourced from Legistar.</span>
   </div>
 </div>
 
 <header>
-  <div class="shell header-inner">
-    <div class="crumb"><a href="index.html">Cincinnati City Council</a> &rsaquo; Roll Call Votes</div>
-    <h1>Roll Call Votes</h1>
-    <div class="subtitle">Every recorded item with an individual member vote breakdown, sourced from Legistar.</div>
-    <div class="nav-links">
-      <a href="index.html">&larr; All Legislation</a>
-      <a href="members.html">Member Records</a>
-    </div>
+  <div class="shell">
+    <div class="breadcrumb"><a href="index.html">Cincinnati City Council</a> &rsaquo; City Council Roll Call Votes</div>
+    <h1>City Council Roll Call Votes</h1>
+    <div class="dek">We have current and historical information related to City Council roll call votes. You can search by subject, file number, tag, or sponsor.</div>
+    <div class="page-links"><a href="index.html">All Legislation</a><a href="members.html">Member Records</a></div>
   </div>
 </header>
 
@@ -145,14 +130,50 @@ main{padding:1.5rem 0 3rem;font-family:-apple-system,BlinkMacSystemFont,'Segoe U
 
     <div id="error-box" class="error-box" style="display:none"></div>
 
-    <div class="search-bar">
-      <input type="text" id="search" placeholder="Search by file number or subject" oninput="onSearch()">
+    <div class="search-block">
+      <label for="search">Search by subject or file number:</label>
+      <div class="search-bar">
+        <input type="text" id="search" placeholder="" oninput="onFilterChange()">
+      </div>
     </div>
-    <div class="search-hint">Search matches file number, title, and summary text.</div>
 
+    <div class="filter-row">
+      <div class="filter-col">
+        <label>Tags</label>
+        <details class="tag-dropdown" id="tag-dropdown">
+          <summary id="tag-summary">Any tag</summary>
+          <div class="tag-panel">
+            <div class="tag-mode">
+              <label><input type="radio" name="tag-mode" value="or" checked onchange="onFilterChange()"> Match ANY selected (OR)</label>
+              <label><input type="radio" name="tag-mode" value="and" onchange="onFilterChange()"> Match ALL selected (AND)</label>
+            </div>
+            <div id="tag-options"></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="filter-col">
+        <label for="sponsor-select">Sponsor</label>
+        <select class="plain-select" id="sponsor-select" onchange="onFilterChange()">
+          <option value="">Any sponsor</option>
+        </select>
+      </div>
+
+      <button class="clear-link" onclick="clearFilters()">Clear all filters</button>
+    </div>
+
+    <div class="section-heading">Roll Call Votes</div>
     <div class="result-count" id="result-count"></div>
     <div id="results"><div class="loading">Loading records&hellip;</div></div>
     <div class="pagination" id="pagination"></div>
+
+    <div class="related-footer">
+      <h2>Related links</h2>
+      <ul>
+        <li><a href="https://cincinnatioh.legistar.com/Calendar.aspx" target="_blank">City Council Meeting Minutes and Agendas</a></li>
+        <li><a href="council_data.json" target="_blank">Download underlying data (JSON)</a></li>
+      </ul>
+    </div>
 
   </div>
 </main>
@@ -162,37 +183,94 @@ const PAGE_SIZE = 8;
 let ALL = [];
 let filtered = [];
 let page = 0;
+let allTags = [];
 
 function memberList(r) {
   const groups = [
-    {arr: r.vote_yes, label: 'Yes', cls: 'v-yes'},
-    {arr: r.vote_no, label: 'No', cls: 'v-no'},
-    {arr: r.vote_abstain, label: 'Abstain', cls: 'v-abstain'},
-    {arr: r.vote_absent, label: 'Absent', cls: 'v-absent'},
-    {arr: r.vote_excused, label: 'Excused', cls: 'v-excused'},
+    {arr: r.vote_yes, label: 'Yes'},
+    {arr: r.vote_no, label: 'No'},
+    {arr: r.vote_abstain, label: 'Abstain'},
+    {arr: r.vote_absent, label: 'Absent'},
+    {arr: r.vote_excused, label: 'Excused'},
   ];
   const rows = [];
-  groups.forEach(g => (g.arr || []).forEach(name => rows.push({name, label: g.label, cls: g.cls})));
+  groups.forEach(g => (g.arr || []).forEach(name => rows.push({name, label: g.label})));
   rows.sort((a, b) => a.name.localeCompare(b.name));
   return rows;
 }
 
 function outcomeLine(r) {
-  const yes = (r.vote_yes || []).length;
-  const no = (r.vote_no || []).length;
-  const parts = [`${yes} yea${yes === 1 ? '' : 's'}`];
-  if (no) parts.push(`${no} nay${no === 1 ? '' : 's'}`);
+  const yes = r.vote_yes || [];
+  const no = r.vote_no || [];
+  const absent = r.vote_absent || [];
   const passed = r.st && /pass|adopt|confirm/i.test(r.st);
   const failed = r.st && /fail|postpone/i.test(r.st);
-  const verb = passed ? 'passed' : failed ? 'failed' : (r.st || 'recorded');
-  return `Result: ${verb} — ${parts.join(', ')}.`;
+  const verb = passed ? 'adopted' : failed ? 'failed to be adopted' : (r.st || 'recorded');
+  const parts = [`yeas ${yes.length} (${yes.join(', ') || '—'})`];
+  if (no.length) parts.push(`nays ${no.length} (${no.join(', ')})`);
+  if (absent.length) parts.push(`absent ${absent.length} (${absent.join(', ')})`);
+  return `The matter was ${verb}: ${parts.join(', ')}.`;
+}
+
+function getSelectedTags() {
+  return Array.from(document.querySelectorAll('#tag-options input[type=checkbox]:checked')).map(el => el.value);
+}
+
+function getTagMode() {
+  return document.querySelector('input[name="tag-mode"]:checked').value;
+}
+
+function updateTagSummary() {
+  const sel = getSelectedTags();
+  const mode = getTagMode();
+  const summary = document.getElementById('tag-summary');
+  if (!sel.length) { summary.textContent = 'Any tag'; return; }
+  const joiner = mode === 'and' ? ' AND ' : ' OR ';
+  summary.textContent = sel.length > 2 ? `${sel.length} tags (${mode.toUpperCase()})` : sel.join(joiner);
+}
+
+function applyFilters() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const sponsor = document.getElementById('sponsor-select').value;
+  const selTags = getSelectedTags();
+  const mode = getTagMode();
+
+  filtered = ALL.filter(r => {
+    if (q) {
+      const hay = `${r.f || ''} ${r.t || ''} ${r.sm || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (sponsor && r.rq !== sponsor) return false;
+    if (selTags.length) {
+      const itemTags = (r.tp || '').split('|').map(t => t.trim()).filter(Boolean);
+      if (mode === 'and') {
+        if (!selTags.every(t => itemTags.includes(t))) return false;
+      } else {
+        if (!selTags.some(t => itemTags.includes(t))) return false;
+      }
+    }
+    return true;
+  });
+  page = 0;
+  updateTagSummary();
+  render();
+}
+
+function onFilterChange() { applyFilters(); }
+
+function clearFilters() {
+  document.getElementById('search').value = '';
+  document.getElementById('sponsor-select').value = '';
+  document.querySelectorAll('#tag-options input[type=checkbox]').forEach(el => el.checked = false);
+  document.querySelector('input[name="tag-mode"][value="or"]').checked = true;
+  applyFilters();
 }
 
 function render() {
   const start = page * PAGE_SIZE;
   const slice = filtered.slice(start, start + PAGE_SIZE);
   document.getElementById('result-count').innerHTML =
-    `<strong>${filtered.length.toLocaleString()}</strong> roll call vote${filtered.length === 1 ? '' : 's'}`;
+    `${filtered.length.toLocaleString()} result${filtered.length === 1 ? '' : 's'}`;
 
   const res = document.getElementById('results');
   if (filtered.length === 0) {
@@ -204,24 +282,23 @@ function render() {
   res.innerHTML = slice.map(r => {
     const rows = memberList(r);
     const voteHtml = rows.map(v =>
-      `<div class="vote-row"><span class="vote-name">${v.name}</span><span class="vote-val ${v.cls}">${v.label}</span></div>`
+      `<div><span class="name">${v.name}:</span> ${v.label}</div>`
     ).join('');
+    const tagsHtml = (r.tp || '').split('|').map(t => t.trim()).filter(Boolean)
+      .map(t => `<span class="tag-chip">${t}</span>`).join('');
     const legistarLink = r.legistar_url
-      ? `<a class="legistar-link" href="${r.legistar_url}" target="_blank">&#8599; View on Legistar</a>`
+      ? `<div class="legistar-line"><a href="${r.legistar_url}" target="_blank">View on Legistar &rsaquo;</a></div>`
       : '';
     return `<div class="docket">
-      <div class="docket-top">
-        <span class="docket-num">File #${r.f || '—'}</span>
-        <span class="docket-date">${r.d || ''}</span>
-      </div>
+      <div class="docket-num">File #${r.f || '—'}</div>
       <div class="docket-subject">${r.t || r.rt || '(untitled)'}</div>
-      <div class="section-label">Description</div>
-      <div class="description-text">${r.sm || r.rt || 'No description on file.'}</div>
-      <div class="outcome-line">${outcomeLine(r)}</div>
-      <div class="vote-table">
-        <div class="section-label">Votes</div>
-        <div class="vote-grid">${voteHtml}</div>
-      </div>
+      <div class="docket-date">${r.d || ''}${r.rq ? ' &middot; Sponsor: ' + r.rq : ''}</div>
+      ${tagsHtml ? `<div>${tagsHtml}</div>` : ''}
+      <div class="field-heading">Description:</div>
+      <div class="field-body">${r.sm || r.rt || 'No description on file.'}</div>
+      <div class="outcome">${outcomeLine(r)}</div>
+      <div class="field-heading">Votes:</div>
+      <div class="vote-list">${voteHtml}</div>
       ${legistarLink}
     </div>`;
   }).join('');
@@ -233,7 +310,8 @@ function renderPagination() {
   const total = Math.ceil(filtered.length / PAGE_SIZE);
   const pag = document.getElementById('pagination');
   if (total <= 1) { pag.innerHTML = ''; return; }
-  let html = `<button class="page-btn" onclick="goPage(${page - 1})" ${page === 0 ? 'disabled' : ''}>&larr; Prev</button>`;
+  let html = `<button onclick="goPage(0)" ${page === 0 ? 'disabled' : ''}>first &rsaquo;</button>`;
+  html += `<button onclick="goPage(${page - 1})" ${page === 0 ? 'disabled' : ''}>&lsaquo; prev</button>`;
   const range = [];
   for (let i = 0; i < total; i++) {
     if (i === 0 || i === total - 1 || Math.abs(i - page) <= 2) range.push(i);
@@ -241,10 +319,11 @@ function renderPagination() {
   }
   range.forEach(i => {
     html += i === '…'
-      ? `<span class="page-info">…</span>`
-      : `<button class="page-btn ${i === page ? 'active' : ''}" onclick="goPage(${i})">${i + 1}</button>`;
+      ? `<span>&hellip;</span>`
+      : `<button class="${i === page ? 'current' : ''}" onclick="goPage(${i})" ${i === page ? 'disabled' : ''}>${i + 1}</button>`;
   });
-  html += `<button class="page-btn" onclick="goPage(${page + 1})" ${page >= total - 1 ? 'disabled' : ''}>Next &rarr;</button>`;
+  html += `<button onclick="goPage(${page + 1})" ${page >= total - 1 ? 'disabled' : ''}>next page &raquo;</button>`;
+  html += `<button onclick="goPage(${total - 1})" ${page >= total - 1 ? 'disabled' : ''}>last page &raquo;&raquo;</button>`;
   pag.innerHTML = html;
 }
 
@@ -254,15 +333,26 @@ function goPage(p) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function onSearch() {
-  const q = document.getElementById('search').value.trim().toLowerCase();
-  filtered = !q ? ALL.slice() : ALL.filter(r =>
-    (r.f || '').toLowerCase().includes(q) ||
-    (r.t || '').toLowerCase().includes(q) ||
-    (r.sm || '').toLowerCase().includes(q)
-  );
-  page = 0;
-  render();
+function populateFilterOptions() {
+  const tagSet = new Set();
+  const sponsorSet = new Set();
+  ALL.forEach(r => {
+    (r.tp || '').split('|').map(t => t.trim()).filter(Boolean).forEach(t => tagSet.add(t));
+    if (r.rq) sponsorSet.add(r.rq);
+  });
+  allTags = Array.from(tagSet).sort();
+  const tagOptions = document.getElementById('tag-options');
+  tagOptions.innerHTML = allTags.map((t, i) =>
+    `<div class="tag-option"><input type="checkbox" id="tag-${i}" value="${t}" onchange="onFilterChange()"><label for="tag-${i}">${t}</label></div>`
+  ).join('');
+
+  const sponsorSelect = document.getElementById('sponsor-select');
+  Array.from(sponsorSet).sort().forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s;
+    opt.textContent = s;
+    sponsorSelect.appendChild(opt);
+  });
 }
 
 async function loadData() {
@@ -271,18 +361,24 @@ async function loadData() {
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const raw = await resp.json();
     if (raw[0] && raw[0]._meta) raw.shift();
-    // Only items with a recorded vote breakdown belong on this page
     ALL = raw.filter(r => r.vote_yes && r.vote_yes.length);
     ALL.sort((a, b) => (b.d || '').localeCompare(a.d || ''));
+    populateFilterOptions();
     filtered = ALL.slice();
     render();
   } catch (e) {
     document.getElementById('error-box').style.display = 'block';
     document.getElementById('error-box').textContent =
-      'Could not load data file. Make sure council_data.json is in the same folder as votes.html. Error: ' + e.message;
+      'Could not load data file. Make sure council_data.json is in the same folder as alternative.html. Error: ' + e.message;
     document.getElementById('results').innerHTML = '';
   }
 }
+
+// Close tag dropdown when clicking outside it
+document.addEventListener('click', (e) => {
+  const dd = document.getElementById('tag-dropdown');
+  if (dd.open && !dd.contains(e.target)) dd.removeAttribute('open');
+});
 
 loadData();
 </script>
