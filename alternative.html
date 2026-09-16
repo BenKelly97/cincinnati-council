@@ -92,8 +92,8 @@ select.plain-select{border:1px solid var(--border);padding:9px 11px;font-size:14
 .docket:hover{background:var(--card-bg-hover)}
 .docket-head{display:flex;align-items:flex-start;gap:14px}
 .docket-main{flex:1;min-width:0}
-.docket-num{font-family:Georgia,serif;font-weight:700;font-size:19px;color:var(--serif-link);margin-bottom:4px}
-.docket-subject{font-family:Georgia,serif;font-style:italic;font-size:19px;color:var(--serif-link);line-height:1.35;margin-bottom:10px}
+.docket-num{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;font-weight:600;font-size:11.5px;letter-spacing:0.05em;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.docket-subject{font-family:Georgia,serif;font-weight:700;font-style:normal;font-size:22px;color:var(--text);line-height:1.3;margin-bottom:10px}
 .docket-date{font-size:13.5px;color:var(--text2)}
 .docket-sponsor{font-size:13.5px;color:var(--text2)}
 .chevron{font-size:16px;color:var(--text3);margin-top:6px;transition:transform 0.15s;flex-shrink:0}
@@ -209,11 +209,22 @@ select.plain-select{border:1px solid var(--border);padding:9px 11px;font-size:14
 
 <script>
 const PAGE_SIZE = 8;
-// Only these are real sponsors for filtering/display purposes — City Manager
-// submissions and committee-level referrals aren't individual sponsorships.
-const COUNCIL_MEMBERS = new Set(['Albi','Cramerding','James','Jeffreys','Johnson','Kearney','Nolan','Owens','Walsh']);
-function isMemberSponsor(name) {
-  return !!name && COUNCIL_MEMBERS.has(name.trim());
+// Maps every name form the `rq` field may use to one canonical display name,
+// so "Johnson" and "Scotty Johnson" count as the same sponsor everywhere.
+const MEMBER_CANONICAL = {
+  'albi':'Albi','anna albi':'Albi',
+  'cramerding':'Cramerding','jeff cramerding':'Cramerding',
+  'james':'James','ryan james':'James',
+  'jeffreys':'Jeffreys','mark jeffreys':'Jeffreys',
+  'johnson':'Johnson','scotty johnson':'Johnson',
+  'kearney':'Kearney','jan-michele kearney':'Kearney','jan-michele lemon kearney':'Kearney',
+  'nolan':'Nolan','evan nolan':'Nolan',
+  'owens':'Owens','meeka owens':'Owens',
+  'walsh':'Walsh','seth walsh':'Walsh'
+};
+function canonicalSponsor(name) {
+  if (!name) return null;
+  return MEMBER_CANONICAL[name.trim().toLowerCase()] || null;
 }
 let ALL = [];
 let filtered = [];
@@ -273,7 +284,7 @@ function applyFilters() {
       const hay = `${r.f || ''} ${r.t || ''} ${r.sm || ''}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
-    if (sponsor && (!isMemberSponsor(r.rq) || r.rq.trim() !== sponsor)) return false;
+    if (sponsor && canonicalSponsor(r.rq) !== sponsor) return false;
     if (selTags.length) {
       const itemTags = (r.tp || '').split('|').map(t => t.trim()).filter(Boolean);
       if (mode === 'and') {
@@ -326,7 +337,7 @@ function render() {
         <div class="docket-main">
           <div class="docket-num">File #${r.f || '—'}</div>
           <div class="docket-subject">${r.t || r.rt || '(untitled)'}</div>
-          <div class="docket-date">${r.d || ''}${isMemberSponsor(r.rq) ? ' &middot; Sponsor: ' + r.rq : ''}</div>
+          <div class="docket-date">${r.d || ''}${canonicalSponsor(r.rq) ? ' &middot; Sponsor: ' + canonicalSponsor(r.rq) : ''}</div>
         </div>
         <div class="chevron">&#9662;</div>
       </div>
@@ -381,7 +392,8 @@ function populateFilterOptions() {
   const sponsorSet = new Set();
   ALL.forEach(r => {
     (r.tp || '').split('|').map(t => t.trim()).filter(Boolean).forEach(t => tagSet.add(t));
-    if (isMemberSponsor(r.rq)) sponsorSet.add(r.rq.trim());
+    const c = canonicalSponsor(r.rq);
+    if (c) sponsorSet.add(c);
   });
   allTags = Array.from(tagSet).sort();
   const tagOptions = document.getElementById('tag-options');
