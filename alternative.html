@@ -88,23 +88,24 @@ select.plain-select{border:1px solid var(--border);padding:9px 11px;font-size:14
 .result-count{font-size:13px;color:var(--text3);margin-bottom:1rem}
 
 /* Docket accordion cards */
-.docket{background:var(--card-bg);border-radius:6px;padding:22px 26px;margin-bottom:18px;cursor:pointer;transition:background 0.12s}
+.docket{background:var(--card-bg);border-radius:5px;padding:18px 21px;margin-bottom:14px;cursor:pointer;transition:background 0.12s}
 .docket:hover{background:var(--card-bg-hover)}
 .docket-head{display:flex;align-items:flex-start;gap:14px}
 .docket-main{flex:1;min-width:0}
-.docket-num{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;font-weight:600;font-size:11.5px;letter-spacing:0.05em;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
-.docket-subject{font-family:Georgia,serif;font-weight:700;font-style:normal;font-size:22px;color:var(--text);line-height:1.3;margin-bottom:10px}
-.docket-date{font-size:13.5px;color:var(--text2)}
-.docket-sponsor{font-size:13.5px;color:var(--text2)}
-.chevron{font-size:16px;color:var(--text3);margin-top:6px;transition:transform 0.15s;flex-shrink:0}
+.docket-num{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;font-weight:600;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--text3);margin-bottom:5px}
+.docket-subject{font-family:Georgia,serif;font-weight:700;font-style:normal;font-size:18px;color:var(--text);line-height:1.3;margin-bottom:8px}
+.docket-date{font-size:11px;color:var(--text2)}
+.docket-sponsor{font-size:11px;color:var(--text2)}
+.chevron{font-size:14px;color:var(--text3);margin-top:5px;transition:transform 0.15s;flex-shrink:0}
 .docket.expanded .chevron{transform:rotate(180deg)}
-.docket-body{display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.docket-body{display:none;margin-top:13px;padding-top:13px;border-top:1px solid var(--border)}
 .docket.expanded .docket-body{display:block}
-.tag-chip{display:inline-block;font-size:11.5px;color:var(--text2);background:var(--page-bg);border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin:0 6px 6px 0}
-.field-heading{font-weight:700;font-size:13.5px;margin-bottom:4px;margin-top:12px}
-.field-body{font-size:14px;line-height:1.6;color:var(--text)}
-.outcome{font-size:14px;margin-top:8px;font-style:italic;color:var(--text2)}
-.vote-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:2px 20px;font-size:13.5px;margin-top:4px}
+.tag-preview{margin-top:6px}
+.tag-chip{display:inline-block;font-size:10px;color:var(--text2);background:var(--page-bg);border:1px solid var(--border);border-radius:20px;padding:2px 8px;margin:0 5px 5px 0}
+.field-heading{font-weight:700;font-size:11px;margin-bottom:3px;margin-top:10px}
+.field-body{font-size:12px;line-height:1.55;color:var(--text)}
+.outcome{font-size:12px;margin-top:6px;font-style:italic;color:var(--text2)}
+.vote-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:2px 16px;font-size:11px;margin-top:3px}
 .vote-list div{padding:2px 0}
 .vote-list .name{font-weight:600}
 .legistar-line{font-size:13px;margin-top:12px}
@@ -208,19 +209,19 @@ select.plain-select{border:1px solid var(--border);padding:9px 11px;font-size:14
 </main>
 
 <script>
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 20;
 // Maps every name form the `rq` field may use to one canonical display name,
 // so "Johnson" and "Scotty Johnson" count as the same sponsor everywhere.
 const MEMBER_CANONICAL = {
-  'albi':'Albi','anna albi':'Albi',
-  'cramerding':'Cramerding','jeff cramerding':'Cramerding',
-  'james':'James','ryan james':'James',
-  'jeffreys':'Jeffreys','mark jeffreys':'Jeffreys',
-  'johnson':'Johnson','scotty johnson':'Johnson',
-  'kearney':'Kearney','jan-michele kearney':'Kearney','jan-michele lemon kearney':'Kearney',
-  'nolan':'Nolan','evan nolan':'Nolan',
-  'owens':'Owens','meeka owens':'Owens',
-  'walsh':'Walsh','seth walsh':'Walsh'
+  'albi':'Anna Albi','anna albi':'Anna Albi',
+  'cramerding':'Jeff Cramerding','jeff cramerding':'Jeff Cramerding',
+  'james':'Ryan James','ryan james':'Ryan James',
+  'jeffreys':'Mark Jeffreys','mark jeffreys':'Mark Jeffreys',
+  'johnson':'Scotty Johnson','scotty johnson':'Scotty Johnson',
+  'kearney':'Jan-Michele Kearney','jan-michele kearney':'Jan-Michele Kearney','jan-michele lemon kearney':'Jan-Michele Kearney',
+  'nolan':'Evan Nolan','evan nolan':'Evan Nolan',
+  'owens':'Meeka Owens','meeka owens':'Meeka Owens',
+  'walsh':'Seth Walsh','seth walsh':'Seth Walsh'
 };
 function canonicalSponsor(name) {
   if (!name) return null;
@@ -327,8 +328,11 @@ function render() {
     const voteHtml = rows.map(v =>
       `<div><span class="name">${v.name}:</span> ${v.label}</div>`
     ).join('');
-    const tagsHtml = (r.tp || '').split('|').map(t => t.trim()).filter(Boolean)
-      .map(t => `<span class="tag-chip">${t}</span>`).join('');
+    const allTagsForItem = (r.tp || '').split('|').map(t => t.trim()).filter(Boolean);
+    const previewTags = allTagsForItem.slice(0, 5);
+    const extraCount = allTagsForItem.length - previewTags.length;
+    const tagsPreviewHtml = previewTags.map(t => `<span class="tag-chip">${t}</span>`).join('')
+      + (extraCount > 0 ? `<span class="tag-chip">+${extraCount} more</span>` : '');
     const legistarLink = r.legistar_url
       ? `<div class="legistar-line"><a href="${r.legistar_url}" target="_blank">View on Legistar &rsaquo;</a></div>`
       : '';
@@ -338,11 +342,11 @@ function render() {
           <div class="docket-num">File #${r.f || '—'}</div>
           <div class="docket-subject">${r.t || r.rt || '(untitled)'}</div>
           <div class="docket-date">${r.d || ''}${canonicalSponsor(r.rq) ? ' &middot; Sponsor: ' + canonicalSponsor(r.rq) : ''}</div>
+          ${tagsPreviewHtml ? `<div class="tag-preview">${tagsPreviewHtml}</div>` : ''}
         </div>
         <div class="chevron">&#9662;</div>
       </div>
       <div class="docket-body">
-        ${tagsHtml ? `<div>${tagsHtml}</div>` : ''}
         <div class="field-heading">Description:</div>
         <div class="field-body">${r.sm || r.rt || 'No description on file.'}</div>
         <div class="outcome">${outcomeLine(r)}</div>
