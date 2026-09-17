@@ -184,9 +184,31 @@ select.plain-select{border:1px solid var(--border);padding:9px 11px;font-size:14
       </div>
 
       <div class="filter-col">
-        <label for="sponsor-select">Sponsor</label>
-        <select class="plain-select" id="sponsor-select" onchange="onFilterChange()">
-          <option value="">Any sponsor</option>
+        <label>Sponsor</label>
+        <details class="tag-dropdown" id="sponsor-dropdown">
+          <summary id="sponsor-summary">Any sponsor</summary>
+          <div class="tag-panel">
+            <div class="tag-mode">
+              <label><input type="radio" name="sponsor-mode" value="or" checked onchange="onFilterChange()"> Match ANY selected (OR)</label>
+              <label><input type="radio" name="sponsor-mode" value="and" onchange="onFilterChange()"> Match ALL selected (AND)</label>
+            </div>
+            <div id="sponsor-options"></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="filter-col">
+        <label for="vote-member-select">Voted by</label>
+        <select class="plain-select" id="vote-member-select" onchange="onFilterChange()">
+          <option value="">Any member</option>
+        </select>
+        <select class="plain-select" id="vote-value-select" onchange="onFilterChange()" style="margin-top:6px">
+          <option value="">Any vote</option>
+          <option value="Yes">Voted Yes</option>
+          <option value="No">Voted No</option>
+          <option value="Abstain">Abstained</option>
+          <option value="Absent">Absent</option>
+          <option value="Excused">Excused</option>
         </select>
       </div>
 
@@ -226,6 +248,13 @@ const MEMBER_CANONICAL = {
 function canonicalSponsor(name) {
   if (!name) return null;
   return MEMBER_CANONICAL[name.trim().toLowerCase()] || null;
+}
+function itemSponsors(r) {
+  if (!r.rq) return [];
+  // Split in case rq ever holds more than one name; canonicalize each token.
+  return r.rq.split(/,|&|\band\b/i)
+    .map(s => canonicalSponsor(s))
+    .filter(Boolean);
 }
 let ALL = [];
 let filtered = [];
@@ -274,39 +303,89 @@ function updateTagSummary() {
   summary.textContent = sel.length > 2 ? `${sel.length} tags (${mode.toUpperCase()})` : sel.join(joiner);
 }
 
+function getSelectedSponsors() {
+  return Array.from(document.querySelectorAll('#sponsor-options input[type=checkbox]:checked')).map(el => el.value);
+}
+function getSponsorMode() {
+  return document.querySelector('input[name="sponsor-mode"]:checked').value;
+}
+function updateSponsorSummary() {
+  const sel = getSelectedSponsors();
+  const mode = getSponsorMode();
+  const summary = document.getElementById('sponsor-summary');
+  if (!sel.length) { summary.textContent = 'Any sponsor'; return; }
+  const joiner = mode === 'and' ? ' AND ' : ' OR ';
+  summary.textContent = sel.length > 2 ? `${sel.length} sponsors (${mode.toUpperCase()})` : sel.join(joiner);
+}
+
+function voteArrayFor(r, value) {
+  switch (value) {
+    case 'Yes': return r.vote_yes || [];
+    case 'No': return r.vote_no || [];
+    case 'Abstain': return r.vote_abstain || [];
+    case 'Absent': return r.vote_absent || [];
+    case 'Excused': return r.vote_excused || [];
+    default: return [];
+  }
+}
+
 function applyFilters() {
   const q = document.getElementById('search').value.trim().toLowerCase();
-  const sponsor = document.getElementById('sponsor-select').value;
+  const selSponsors = getSelectedSponsors();
+  const sponsorMode = getSponsorMode();
   const selTags = getSelectedTags();
-  const mode = getTagMode();
+  const tagMode = getTagMode();
+  const voteMember = document.getElementById('vote-member-select').value;
+  const voteValue = document.getElementById('vote-value-select').value;
 
   filtered = ALL.filter(r => {
     if (q) {
       const hay = `${r.f || ''} ${r.t || ''} ${r.sm || ''}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
-    if (sponsor && canonicalSponsor(r.rq) !== sponsor) return false;
+    if (selSponsors.length) {
+      const itemSp = itemSponsors(r);
+      if (sponsorMode === 'and') {
+        if (!selSponsors.every(s => itemSp.includes(s))) return false;
+      } else {
+        if (!selSponsors.some(s => itemSp.includes(s))) return false;
+      }
+    }
     if (selTags.length) {
       const itemTags = (r.tp || '').split('|').map(t => t.trim()).filter(Boolean);
-      if (mode === 'and') {
+      if (tagMode === 'and') {
         if (!selTags.every(t => itemTags.includes(t))) return false;
       } else {
         if (!selTags.some(t => itemTags.includes(t))) return false;
+      }
+    }
+    if (voteMember) {
+      // If a vote type is also chosen, that member must appear in that specific
+      // array; otherwise the member must have any recorded vote on the item.
+      if (voteValue) {
+        if (!voteArrayFor(r, voteValue).includes(voteMember)) return false;
+      } else {
+        const anyVote = ['Yes','No','Abstain','Absent','Excused'].some(v => voteArrayFor(r, v).includes(voteMember));
+        if (!anyVote) return false;
       }
     }
     return true;
   });
   page = 0;
   updateTagSummary();
+  updateSponsorSummary();
   render();
 }
 function onFilterChange() { applyFilters(); }
 
 function clearFilters() {
   document.getElementById('search').value = '';
-  document.getElementById('sponsor-select').value = '';
+  document.getElementById('vote-member-select').value = '';
+  document.getElementById('vote-value-select').value = '';
   document.querySelectorAll('#tag-options input[type=checkbox]').forEach(el => el.checked = false);
   document.querySelector('input[name="tag-mode"][value="or"]').checked = true;
+  document.querySelectorAll('#sponsor-options input[type=checkbox]').forEach(el => el.checked = false);
+  document.querySelector('input[name="sponsor-mode"][value="or"]').checked = true;
   applyFilters();
 }
 
@@ -341,7 +420,7 @@ function render() {
         <div class="docket-main">
           <div class="docket-num">File #${r.f || '—'}</div>
           <div class="docket-subject">${r.t || r.rt || '(untitled)'}</div>
-          <div class="docket-date">${r.d || ''}${canonicalSponsor(r.rq) ? ' &middot; Sponsor: ' + canonicalSponsor(r.rq) : ''}</div>
+          <div class="docket-date">${r.d || ''}${itemSponsors(r).length ? ' &middot; Sponsor: ' + itemSponsors(r).join(', ') : ''}</div>
           ${tagsPreviewHtml ? `<div class="tag-preview">${tagsPreviewHtml}</div>` : ''}
         </div>
         <div class="chevron">&#9662;</div>
@@ -394,10 +473,13 @@ function goPage(p) {
 function populateFilterOptions() {
   const tagSet = new Set();
   const sponsorSet = new Set();
+  const voteMemberSet = new Set();
   ALL.forEach(r => {
     (r.tp || '').split('|').map(t => t.trim()).filter(Boolean).forEach(t => tagSet.add(t));
-    const c = canonicalSponsor(r.rq);
-    if (c) sponsorSet.add(c);
+    itemSponsors(r).forEach(s => sponsorSet.add(s));
+    ['vote_yes','vote_no','vote_abstain','vote_absent','vote_excused'].forEach(k => {
+      (r[k] || []).forEach(name => voteMemberSet.add(name));
+    });
   });
   allTags = Array.from(tagSet).sort();
   const tagOptions = document.getElementById('tag-options');
@@ -405,12 +487,18 @@ function populateFilterOptions() {
     `<div class="tag-option"><input type="checkbox" id="tag-${i}" value="${t}" onchange="onFilterChange()"><label for="tag-${i}">${t}</label></div>`
   ).join('');
 
-  const sponsorSelect = document.getElementById('sponsor-select');
-  Array.from(sponsorSet).sort().forEach(s => {
+  const sponsorOptions = document.getElementById('sponsor-options');
+  const sortedSponsors = Array.from(sponsorSet).sort();
+  sponsorOptions.innerHTML = sortedSponsors.map((s, i) =>
+    `<div class="tag-option"><input type="checkbox" id="sponsor-${i}" value="${s}" onchange="onFilterChange()"><label for="sponsor-${i}">${s}</label></div>`
+  ).join('');
+
+  const voteMemberSelect = document.getElementById('vote-member-select');
+  Array.from(voteMemberSet).sort().forEach(name => {
     const opt = document.createElement('option');
-    opt.value = s;
-    opt.textContent = s;
-    sponsorSelect.appendChild(opt);
+    opt.value = name;
+    opt.textContent = name;
+    voteMemberSelect.appendChild(opt);
   });
 }
 
@@ -434,8 +522,10 @@ async function loadData() {
 }
 
 document.addEventListener('click', (e) => {
-  const dd = document.getElementById('tag-dropdown');
-  if (dd.open && !dd.contains(e.target)) dd.removeAttribute('open');
+  ['tag-dropdown','sponsor-dropdown'].forEach(id => {
+    const dd = document.getElementById(id);
+    if (dd.open && !dd.contains(e.target)) dd.removeAttribute('open');
+  });
 });
 
 loadData();
