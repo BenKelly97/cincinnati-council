@@ -273,6 +273,53 @@ function populateStats() {
   document.getElementById('header-meta').textContent = ALL.length.toLocaleString() + ' items · 2020–2026';
 }
 
+// Each group is a set of interchangeable terms for search purposes. Add more
+// arrays here as needed — every term in a group is treated as equivalent.
+const SYNONYM_GROUPS = [
+  ['housing','house','houses','home','homes','residence','residences','residential','dwelling','dwellings'],
+  ['zoning','zone','zones','rezone','rezoning','rezoned'],
+  ['vacant','blight','blighted','abandoned'],
+  ['budget','appropriation','appropriations','funding','funds','fiscal'],
+  ['grant','grants'],
+  ['contract','contracts','agreement','agreements','procurement'],
+  ['abatement','abatements'],
+  ['police','cpd'],
+  ['fire','cfd'],
+  ['traffic','speeding','speed'],
+  ['street','streets','road','roads','roadway','roadways'],
+  ['sidewalk','sidewalks','pedestrian','pedestrians'],
+  ['bike','bicycle','bicycling','cycling','bikes','bicycles'],
+  ['parking','garage','garages'],
+  ['transit','bus','buses','sorta','metro'],
+  ['streetcar','trolley','rail'],
+  ['infrastructure','cip'],
+  ['sewer','sewers','stormwater','wastewater','msd'],
+  ['water','waterworks'],
+  ['trash','garbage','waste','recycling','sanitation'],
+  ['environment','environmental','sustainability','sustainable','green'],
+  ['park','parks','parkland','recreation'],
+  ['business','businesses'],
+  ['nonprofit','nonprofits'],
+  ['neighborhood','neighborhoods','community','communities'],
+  ['health','healthcare'],
+  ['youth','children','minors','kids','kid','child'],
+  ['senior','seniors','elderly'],
+  ['disability','disabled','ada','accessibility','accessible'],
+  ['election','elections','voting','vote','ballot'],
+  ['committee','commission','board'],
+  ['honorary','naming'],
+  ['liquor','alcohol','alcoholic']
+];
+function expandTerm(term) {
+  const group = SYNONYM_GROUPS.find(g => g.includes(term));
+  return group || [term];
+}
+function matchesSearch(haystack, query) {
+  if (!query) return true;
+  const tokens = query.split(/\s+/).filter(Boolean);
+  return tokens.every(tok => expandTerm(tok).some(variant => haystack.includes(variant)));
+}
+
 function getFilters() {
   return {
     q: (document.getElementById('search').value || '').toLowerCase().trim(),
@@ -294,7 +341,7 @@ function applyFilters() {
   filtered = ALL.filter(r => {
     if (f.q) {
       const hay = (r.t + ' ' + r.sm).toLowerCase();
-      if (!hay.includes(f.q)) return false;
+      if (!matchesSearch(hay, f.q)) return false;
     }
     if (f.topic && !(r.tp || '').split('|').includes(f.topic)) return false;
     if (f.action && r.a !== f.action) return false;
@@ -315,8 +362,8 @@ function applySort() {
   else if (s === 'relevance') {
     const q = (document.getElementById('search').value || '').toLowerCase().trim();
     filtered.sort((a, b) => {
-      const scoreA = (a.t || '').toLowerCase().includes(q) ? 0 : 1;
-      const scoreB = (b.t || '').toLowerCase().includes(q) ? 0 : 1;
+      const scoreA = matchesSearch((a.t || '').toLowerCase(), q) ? 0 : 1;
+      const scoreB = matchesSearch((b.t || '').toLowerCase(), q) ? 0 : 1;
       if (scoreA !== scoreB) return scoreA - scoreB;
       return (b.d || '').localeCompare(a.d || '');
     });
