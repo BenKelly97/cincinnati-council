@@ -301,7 +301,7 @@ async function loadData() {
     [...(v.vote_yes||[]), ...(v.vote_no||[]), ...(v.vote_abstain||[]), ...(v.vote_absent||[])].forEach(m => memberSet.add(m));
   });
   // Sort: current members first (in FULL_NAMES order), then historical alphabetically
-  const currentMembers = ['Albi','Walsh','Johnson','Cramerding','Jeffreys','Owens','Nolan','Parks','Kearney'];
+  const currentMembers = ['Albi','Walsh','Johnson','Cramerding','Jeffreys','Owens','Nolan','James','Kearney'];
   const current = currentMembers.filter(m => memberSet.has(m));
   const historical = [...memberSet].filter(m => !currentMembers.includes(m) && !EXCLUDE_MEMBERS.has(m)).sort();
   MEMBERS = [...current, ...historical];
