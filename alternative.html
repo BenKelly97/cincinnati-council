@@ -520,14 +520,8 @@ function goPage(p) {
 
 function populateFilterOptions() {
   const tagSet = new Set();
-  const sponsorSet = new Set();
-  const voteMemberSet = new Set();
   ALL.forEach(r => {
     (r.tp || '').split('|').map(t => t.trim()).filter(Boolean).forEach(t => tagSet.add(t));
-    itemSponsors(r).forEach(s => sponsorSet.add(s));
-    ['vote_yes','vote_no','vote_abstain','vote_absent','vote_excused'].forEach(k => {
-      (r[k] || []).forEach(name => voteMemberSet.add(name));
-    });
   });
   allTags = Array.from(tagSet).sort();
   const tagOptions = document.getElementById('tag-options');
@@ -535,14 +529,19 @@ function populateFilterOptions() {
     `<div class="tag-option"><input type="checkbox" id="tag-${i}" value="${t}" onchange="onFilterChange()"><label for="tag-${i}">${t}</label></div>`
   ).join('');
 
+  // Sponsor and Voted-by lists always show every known councilmember, not just
+  // those who happen to appear as a sponsor or a recorded vote in the current
+  // dataset — otherwise a member with no matching records yet gets dropped
+  // from the filter entirely, making them impossible to ever select.
+  const allMembers = Array.from(new Set(Object.values(MEMBER_CANONICAL))).sort();
+
   const sponsorOptions = document.getElementById('sponsor-options');
-  const sortedSponsors = Array.from(sponsorSet).sort();
-  sponsorOptions.innerHTML = sortedSponsors.map((s, i) =>
+  sponsorOptions.innerHTML = allMembers.map((s, i) =>
     `<div class="tag-option"><input type="checkbox" id="sponsor-${i}" value="${s}" onchange="onFilterChange()"><label for="sponsor-${i}">${s}</label></div>`
   ).join('');
 
   const voteMemberSelect = document.getElementById('vote-member-select');
-  Array.from(voteMemberSet).sort().forEach(name => {
+  allMembers.forEach(name => {
     const opt = document.createElement('option');
     opt.value = name;
     opt.textContent = name;
