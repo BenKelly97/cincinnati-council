@@ -178,7 +178,8 @@ function render() {
   const maxYear = dates.length ? dates[0].slice(0,4) : '2026';
   const rangeLabel = minYear === maxYear ? minYear : `${minYear}–${maxYear}`;
 
-  let html = `<div class="section-title">Voting Record ${rangeLabel} — Select a member</div>`;
+  let html = `<div class="section-title">Voting Record ${rangeLabel} — Select a member</div>
+    <div style="font-size:13px;color:var(--text3);margin-top:-0.5rem;margin-bottom:1.25rem;max-width:640px">Data is fairly complete from 2020 onward. Records from before 2020 may be incomplete.</div>`;
 
   function memberCard(name) {
     const s = getMemberStats(name);
