@@ -7,30 +7,30 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --page-bg:#e9e9e7;
-  --card-bg:#f4f4f2;
-  --card-bg-hover:#ececea;
-  --text:#1b1b1b;
-  --text2:#4a4a48;
-  --text3:#8a8a86;
-  --border:#d8d8d4;
-  --red:#c8102e;
-  --navy:#0a2240;
-  --serif-link:#3a5a95;
+--page-bg:#e9e9e7;
+--card-bg:#f4f4f2;
+--card-bg-hover:#ececea;
+--text:#1b1b1b;
+--text2:#4a4a48;
+--text3:#8a8a86;
+--border:#d8d8d4;
+--red:#c8102e;
+--navy:#0a2240;
+--serif-link:#3a5a95;
 }
 @media(prefers-color-scheme:dark){
-  :root{
-    --page-bg:#161512;
-    --card-bg:#211f1c;
-    --card-bg-hover:#28261f;
-    --text:#f0efe8;
-    --text2:#b8b6ae;
-    --text3:#8a8a82;
-    --border:#3a3834;
-    --red:#e0435c;
-    --navy:#0d1f38;
-    --serif-link:#8fa9d9;
-  }
+:root{
+--page-bg:#161512;
+--card-bg:#211f1c;
+--card-bg-hover:#28261f;
+--text:#f0efe8;
+--text2:#b8b6ae;
+--text3:#8a8a82;
+--border:#3a3834;
+--red:#e0435c;
+--navy:#0d1f38;
+--serif-link:#8fa9d9;
+}
 }
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--page-bg);color:var(--text);min-height:100vh;font-size:16px;line-height:1.5}
 a{color:var(--serif-link)}
@@ -126,9 +126,9 @@ select.plain-select{border:1px solid var(--border);padding:9px 11px;font-size:14
 .related-footer li{margin-bottom:6px;font-size:14px}
 
 @media(max-width:640px){
-  .vote-list{grid-template-columns:1fr 1fr}
-  .wordmark{font-size:20px}
-  .topnav{display:none}
+.vote-list{grid-template-columns:1fr 1fr}
+.wordmark{font-size:20px}
+.topnav{display:none}
 }
 </style>
 </head>
@@ -137,97 +137,97 @@ select.plain-select{border:1px solid var(--border);padding:9px 11px;font-size:14
 <div class="notice">Independent legislative record, not an official City of Cincinnati page. Data sourced from Legistar.</div>
 
 <div class="topbar">
-  <div class="shell topbar-inner">
-    <a class="menu-badge" href="index.html"><span class="bars">&#9776;</span>MENU</a>
-    <div class="wordmark">COUNCIL <em>of</em> CINCINNATI</div>
-    <div class="divider"></div>
-    <div class="tagline">Legislative Record</div>
-    <div class="topnav">
-      <a href="index.html">All Legislation</a>
-      <a href="members.html">Member Records</a>
-    </div>
-  </div>
+<div class="shell topbar-inner">
+<a class="menu-badge" href="index.html"><span class="bars">&#9776;</span>MENU</a>
+<div class="wordmark">COUNCIL <em>of</em> CINCINNATI</div>
+<div class="divider"></div>
+<div class="tagline">Legislative Record</div>
+<div class="topnav">
+<a href="index.html">All Legislation</a>
+<a href="members.html">Member Records</a>
+</div>
+</div>
 </div>
 
 <div class="subnav">
-  <div class="subnav-inner">
-    <a class="active" href="#">Roll Call Search</a>
-    <a href="#related">Related Links</a>
-  </div>
+<div class="subnav-inner">
+<a class="active" href="#">Roll Call Search</a>
+<a href="#related">Related Links</a>
+</div>
 </div>
 
 <main>
-  <div class="shell">
+<div class="shell">
 
-    <div id="error-box" class="error-box" style="display:none"></div>
+<div id="error-box" class="error-box" style="display:none"></div>
 
-    <div class="search-block">
-      <label for="search">Search by subject or file number:</label>
-      <div class="search-bar">
-        <input type="text" id="search" placeholder="" oninput="onFilterChange()">
-      </div>
-    </div>
+<div class="search-block">
+<label for="search">Search by subject or file number:</label>
+<div class="search-bar">
+<input type="text" id="search" placeholder="" oninput="onFilterChange()">
+</div>
+</div>
 
-    <div class="filter-row">
-      <div class="filter-col">
-        <label>Tags</label>
-        <details class="tag-dropdown" id="tag-dropdown">
-          <summary id="tag-summary">Any tag</summary>
-          <div class="tag-panel">
-            <div class="tag-mode">
-              <label><input type="radio" name="tag-mode" value="or" checked onchange="onFilterChange()"> Match ANY selected (OR)</label>
-              <label><input type="radio" name="tag-mode" value="and" onchange="onFilterChange()"> Match ALL selected (AND)</label>
-            </div>
-            <div id="tag-options"></div>
-          </div>
-        </details>
-      </div>
+<div class="filter-row">
+<div class="filter-col">
+<label>Tags</label>
+<details class="tag-dropdown" id="tag-dropdown">
+<summary id="tag-summary">Any tag</summary>
+<div class="tag-panel">
+<div class="tag-mode">
+<label><input type="radio" name="tag-mode" value="or" checked onchange="onFilterChange()"> Match ANY selected (OR)</label>
+<label><input type="radio" name="tag-mode" value="and" onchange="onFilterChange()"> Match ALL selected (AND)</label>
+</div>
+<div id="tag-options"></div>
+</div>
+</details>
+</div>
 
-      <div class="filter-col">
-        <label>Sponsor</label>
-        <details class="tag-dropdown" id="sponsor-dropdown">
-          <summary id="sponsor-summary">Any sponsor</summary>
-          <div class="tag-panel">
-            <div class="tag-mode">
-              <label><input type="radio" name="sponsor-mode" value="or" checked onchange="onFilterChange()"> Match ANY selected (OR)</label>
-              <label><input type="radio" name="sponsor-mode" value="and" onchange="onFilterChange()"> Match ALL selected (AND)</label>
-            </div>
-            <div id="sponsor-options"></div>
-          </div>
-        </details>
-      </div>
+<div class="filter-col">
+<label>Sponsor</label>
+<details class="tag-dropdown" id="sponsor-dropdown">
+<summary id="sponsor-summary">Any sponsor</summary>
+<div class="tag-panel">
+<div class="tag-mode">
+<label><input type="radio" name="sponsor-mode" value="or" checked onchange="onFilterChange()"> Match ANY selected (OR)</label>
+<label><input type="radio" name="sponsor-mode" value="and" onchange="onFilterChange()"> Match ALL selected (AND)</label>
+</div>
+<div id="sponsor-options"></div>
+</div>
+</details>
+</div>
 
-      <div class="filter-col">
-        <label for="vote-member-select">Voted by</label>
-        <select class="plain-select" id="vote-member-select" onchange="onFilterChange()">
-          <option value="">Any member</option>
-        </select>
-        <select class="plain-select" id="vote-value-select" onchange="onFilterChange()" style="margin-top:6px">
-          <option value="">Any vote</option>
-          <option value="Yes">Voted Yes</option>
-          <option value="No">Voted No</option>
-          <option value="Abstain">Abstained</option>
-          <option value="Absent">Absent</option>
-          <option value="Excused">Excused</option>
-        </select>
-      </div>
+<div class="filter-col">
+<label for="vote-member-select">Voted by</label>
+<select class="plain-select" id="vote-member-select" onchange="onFilterChange()">
+<option value="">Any member</option>
+</select>
+<select class="plain-select" id="vote-value-select" onchange="onFilterChange()" style="margin-top:6px">
+<option value="">Any vote</option>
+<option value="Yes">Voted Yes</option>
+<option value="No">Voted No</option>
+<option value="Abstain">Abstained</option>
+<option value="Absent">Absent</option>
+<option value="Excused">Excused</option>
+</select>
+</div>
 
-      <button class="clear-link" onclick="clearFilters()">Clear all filters</button>
-    </div>
+<button class="clear-link" onclick="clearFilters()">Clear all filters</button>
+</div>
 
-    <div class="result-count" id="result-count"></div>
-    <div id="results"><div class="loading">Loading records&hellip;</div></div>
-    <div class="pagination" id="pagination"></div>
+<div class="result-count" id="result-count"></div>
+<div id="results"><div class="loading">Loading records&hellip;</div></div>
+<div class="pagination" id="pagination"></div>
 
-    <div class="related-footer" id="related">
-      <h2>Related links</h2>
-      <ul>
-        <li><a href="https://cincinnatioh.legistar.com/Calendar.aspx" target="_blank">City Council Meeting Minutes and Agendas</a></li>
-        <li><a href="council_data.json" target="_blank">Download underlying data (JSON)</a></li>
-      </ul>
-    </div>
+<div class="related-footer" id="related">
+<h2>Related links</h2>
+<ul>
+<li><a href="https://cincinnatioh.legistar.com/Calendar.aspx" target="_blank">City Council Meeting Minutes and Agendas</a></li>
+<li><a href="council_data.json" target="_blank">Download underlying data (JSON)</a></li>
+</ul>
+</div>
 
-  </div>
+</div>
 </main>
 
 <script>
@@ -235,40 +235,40 @@ const PAGE_SIZE = 20;
 // Maps every name form the `rq` field may use to one canonical display name,
 // so "Johnson" and "Scotty Johnson" count as the same sponsor everywhere.
 const MEMBER_CANONICAL = {
-  'albi':'Anna Albi','anna albi':'Anna Albi',
-  'cramerding':'Jeff Cramerding','jeff cramerding':'Jeff Cramerding',
-  'james':'Ryan James','ryan james':'Ryan James',
-  'jeffreys':'Mark Jeffreys','mark jeffreys':'Mark Jeffreys',
-  'johnson':'Scotty Johnson','scotty johnson':'Scotty Johnson',
-  'kearney':'Jan-Michele Kearney','jan-michele kearney':'Jan-Michele Kearney','jan-michele lemon kearney':'Jan-Michele Kearney',
-  'nolan':'Evan Nolan','evan nolan':'Evan Nolan',
-  'owens':'Meeka Owens','meeka owens':'Meeka Owens',
-  'walsh':'Seth Walsh','seth walsh':'Seth Walsh',
-  // Former members — kept so historical items filed under their sponsorship
-  // or vote are still filterable, matching the roster in members.html.
-  'parks':'Victoria Parks','victoria parks':'Victoria Parks',
-  'landsman':'Greg Landsman','greg landsman':'Greg Landsman',
-  'seelbach':'Chris Seelbach','chris seelbach':'Chris Seelbach',
-  'sittenfeld':'P.G. Sittenfeld','p.g. sittenfeld':'P.G. Sittenfeld',
-  'mann':'David Mann','david mann':'David Mann',
-  'harris':'Reggie Harris','reggie harris':'Reggie Harris',
-  'smitherman':'Christopher Smitherman','christopher smitherman':'Christopher Smitherman',
-  'sundermann':'Betsy Sundermann','betsy sundermann':'Betsy Sundermann',
-  'young':'Wendell Young','wendell young':'Wendell Young',
-  'pastor':'Jeff Pastor','jeff pastor':'Jeff Pastor',
-  'keating':'Liz Keating','liz keating':'Liz Keating',
-  'goodin':'Steve Goodin','steve goodin':'Steve Goodin'
+'albi':'Anna Albi','anna albi':'Anna Albi',
+'cramerding':'Jeff Cramerding','jeff cramerding':'Jeff Cramerding',
+'james':'Ryan James','ryan james':'Ryan James',
+'jeffreys':'Mark Jeffreys','mark jeffreys':'Mark Jeffreys',
+'johnson':'Scotty Johnson','scotty johnson':'Scotty Johnson',
+'kearney':'Jan-Michele Kearney','jan-michele kearney':'Jan-Michele Kearney','jan-michele lemon kearney':'Jan-Michele Kearney',
+'nolan':'Evan Nolan','evan nolan':'Evan Nolan',
+'owens':'Meeka Owens','meeka owens':'Meeka Owens',
+'walsh':'Seth Walsh','seth walsh':'Seth Walsh',
+// Former members — kept so historical items filed under their sponsorship
+// or vote are still filterable, matching the roster in members.html.
+'parks':'Victoria Parks','victoria parks':'Victoria Parks',
+'landsman':'Greg Landsman','greg landsman':'Greg Landsman',
+'seelbach':'Chris Seelbach','chris seelbach':'Chris Seelbach',
+'sittenfeld':'P.G. Sittenfeld','p.g. sittenfeld':'P.G. Sittenfeld',
+'mann':'David Mann','david mann':'David Mann',
+'harris':'Reggie Harris','reggie harris':'Reggie Harris',
+'smitherman':'Christopher Smitherman','christopher smitherman':'Christopher Smitherman',
+'sundermann':'Betsy Sundermann','betsy sundermann':'Betsy Sundermann',
+'young':'Wendell Young','wendell young':'Wendell Young',
+'pastor':'Jeff Pastor','jeff pastor':'Jeff Pastor',
+'keating':'Liz Keating','liz keating':'Liz Keating',
+'goodin':'Steve Goodin','steve goodin':'Steve Goodin'
 };
 function canonicalSponsor(name) {
-  if (!name) return null;
-  return MEMBER_CANONICAL[name.trim().toLowerCase()] || null;
+if (!name) return null;
+return MEMBER_CANONICAL[name.trim().toLowerCase()] || null;
 }
 function itemSponsors(r) {
-  if (!r.rq) return [];
-  // Split in case rq ever holds more than one name; canonicalize each token.
-  return r.rq.split(/,|&|\band\b/i)
-    .map(s => canonicalSponsor(s))
-    .filter(Boolean);
+if (!r.rq) return [];
+// Split in case rq ever holds more than one name; canonicalize each token.
+return r.rq.split(/,|&|\band\b/i)
+.map(s => canonicalSponsor(s))
+.filter(Boolean);
 }
 let ALL = [];
 let filtered = [];
@@ -276,320 +276,323 @@ let page = 0;
 let allTags = [];
 
 function memberList(r) {
-  const groups = [
-    {arr: r.vote_yes, label: 'Yes'},
-    {arr: r.vote_no, label: 'No'},
-    {arr: r.vote_abstain, label: 'Abstain'},
-    {arr: r.vote_absent, label: 'Absent'},
-    {arr: r.vote_excused, label: 'Excused'},
-  ];
-  const rows = [];
-  groups.forEach(g => (g.arr || []).forEach(name => rows.push({name, label: g.label})));
-  rows.sort((a, b) => a.name.localeCompare(b.name));
-  return rows;
+const groups = [
+{arr: r.vote_yes, label: 'Yes'},
+{arr: r.vote_no, label: 'No'},
+{arr: r.vote_abstain, label: 'Abstain'},
+{arr: r.vote_absent, label: 'Absent'},
+{arr: r.vote_excused, label: 'Excused'},
+];
+const rows = [];
+groups.forEach(g => (g.arr || []).forEach(name => rows.push({name, label: g.label})));
+rows.sort((a, b) => a.name.localeCompare(b.name));
+return rows;
 }
 
 function outcomeLine(r) {
-  const yes = r.vote_yes || [];
-  const no = r.vote_no || [];
-  const absent = r.vote_absent || [];
-  const passed = r.st && /pass|adopt|confirm/i.test(r.st);
-  const failed = r.st && /fail|postpone/i.test(r.st);
-  const verb = passed ? 'adopted' : failed ? 'failed to be adopted' : (r.st || 'recorded');
-  const parts = [`yeas ${yes.length} (${yes.join(', ') || '—'})`];
-  if (no.length) parts.push(`nays ${no.length} (${no.join(', ')})`);
-  if (absent.length) parts.push(`absent ${absent.length} (${absent.join(', ')})`);
-  return `The matter was ${verb}: ${parts.join(', ')}.`;
+const yes = r.vote_yes || [];
+const no = r.vote_no || [];
+const absent = r.vote_absent || [];
+const passed = r.st && /pass|adopt|confirm/i.test(r.st);
+const failed = r.st && /fail|postpone/i.test(r.st);
+const verb = passed ? 'adopted' : failed ? 'failed to be adopted' : (r.st || 'recorded');
+const parts = [`yeas ${yes.length} (${yes.join(', ') || '—'})`];
+if (no.length) parts.push(`nays ${no.length} (${no.join(', ')})`);
+if (absent.length) parts.push(`absent ${absent.length} (${absent.join(', ')})`);
+return `The matter was ${verb}: ${parts.join(', ')}.`;
 }
 
 function getSelectedTags() {
-  return Array.from(document.querySelectorAll('#tag-options input[type=checkbox]:checked')).map(el => el.value);
+return Array.from(document.querySelectorAll('#tag-options input[type=checkbox]:checked')).map(el => el.value);
 }
 function getTagMode() {
-  return document.querySelector('input[name="tag-mode"]:checked').value;
+return document.querySelector('input[name="tag-mode"]:checked').value;
 }
 function updateTagSummary() {
-  const sel = getSelectedTags();
-  const mode = getTagMode();
-  const summary = document.getElementById('tag-summary');
-  if (!sel.length) { summary.textContent = 'Any tag'; return; }
-  const joiner = mode === 'and' ? ' AND ' : ' OR ';
-  summary.textContent = sel.length > 2 ? `${sel.length} tags (${mode.toUpperCase()})` : sel.join(joiner);
+const sel = getSelectedTags();
+const mode = getTagMode();
+const summary = document.getElementById('tag-summary');
+if (!sel.length) { summary.textContent = 'Any tag'; return; }
+const joiner = mode === 'and' ? ' AND ' : ' OR ';
+summary.textContent = sel.length > 2 ? `${sel.length} tags (${mode.toUpperCase()})` : sel.join(joiner);
 }
 
 function getSelectedSponsors() {
-  return Array.from(document.querySelectorAll('#sponsor-options input[type=checkbox]:checked')).map(el => el.value);
+return Array.from(document.querySelectorAll('#sponsor-options input[type=checkbox]:checked')).map(el => el.value);
 }
 function getSponsorMode() {
-  return document.querySelector('input[name="sponsor-mode"]:checked').value;
+return document.querySelector('input[name="sponsor-mode"]:checked').value;
 }
 function updateSponsorSummary() {
-  const sel = getSelectedSponsors();
-  const mode = getSponsorMode();
-  const summary = document.getElementById('sponsor-summary');
-  if (!sel.length) { summary.textContent = 'Any sponsor'; return; }
-  const joiner = mode === 'and' ? ' AND ' : ' OR ';
-  summary.textContent = sel.length > 2 ? `${sel.length} sponsors (${mode.toUpperCase()})` : sel.join(joiner);
+const sel = getSelectedSponsors();
+const mode = getSponsorMode();
+const summary = document.getElementById('sponsor-summary');
+if (!sel.length) { summary.textContent = 'Any sponsor'; return; }
+const joiner = mode === 'and' ? ' AND ' : ' OR ';
+summary.textContent = sel.length > 2 ? `${sel.length} sponsors (${mode.toUpperCase()})` : sel.join(joiner);
 }
 
 function voteArrayFor(r, value) {
-  switch (value) {
-    case 'Yes': return r.vote_yes || [];
-    case 'No': return r.vote_no || [];
-    case 'Abstain': return r.vote_abstain || [];
-    case 'Absent': return r.vote_absent || [];
-    case 'Excused': return r.vote_excused || [];
-    default: return [];
-  }
+switch (value) {
+case 'Yes': return r.vote_yes || [];
+case 'No': return r.vote_no || [];
+case 'Abstain': return r.vote_abstain || [];
+case 'Absent': return r.vote_absent || [];
+case 'Excused': return r.vote_excused || [];
+default: return [];
+}
 }
 
 // Each group is a set of interchangeable terms for search purposes. Add more
 // arrays here as needed — every term in a group is treated as equivalent.
 const SYNONYM_GROUPS = [
-  ['housing','house','houses','home','homes','residence','residences','residential','dwelling','dwellings'],
-  ['zoning','zone','zones','rezone','rezoning','rezoned'],
-  ['vacant','blight','blighted','abandoned'],
-  ['budget','appropriation','appropriations','funding','funds','fiscal'],
-  ['grant','grants'],
-  ['contract','contracts','agreement','agreements','procurement'],
-  ['abatement','abatements'],
-  ['police','cpd'],
-  ['fire','cfd'],
-  ['traffic','speeding','speed'],
-  ['street','streets','road','roads','roadway','roadways'],
-  ['sidewalk','sidewalks','pedestrian','pedestrians'],
-  ['bike','bicycle','bicycling','cycling','bikes','bicycles'],
-  ['parking','garage','garages'],
-  ['transit','bus','buses','sorta','metro'],
-  ['streetcar','trolley','rail'],
-  ['infrastructure','cip'],
-  ['sewer','sewers','stormwater','wastewater','msd'],
-  ['water','waterworks'],
-  ['trash','garbage','waste','recycling','sanitation'],
-  ['environment','environmental','sustainability','sustainable','green'],
-  ['park','parks','parkland','recreation'],
-  ['business','businesses'],
-  ['nonprofit','nonprofits'],
-  ['neighborhood','neighborhoods','community','communities'],
-  ['health','healthcare'],
-  ['youth','children','minors','kids','kid','child'],
-  ['senior','seniors','elderly'],
-  ['disability','disabled','ada','accessibility','accessible'],
-  ['election','elections','voting','vote','ballot'],
-  ['committee','commission','board'],
-  ['honorary','naming'],
-  ['liquor','alcohol','alcoholic']
+['housing','house','houses','home','homes','residence','residences','residential','dwelling','dwellings'],
+['zoning','zone','zones','rezone','rezoning','rezoned'],
+['vacant','blight','blighted','abandoned'],
+['budget','appropriation','appropriations','funding','funds','fiscal'],
+['grant','grants'],
+['contract','contracts','agreement','agreements','procurement'],
+['abatement','abatements'],
+['police','cpd'],
+['fire','cfd'],
+['traffic','speeding','speed'],
+['street','streets','road','roads','roadway','roadways'],
+['sidewalk','sidewalks','pedestrian','pedestrians'],
+['bike','bicycle','bicycling','cycling','bikes','bicycles'],
+['parking','garage','garages'],
+['transit','bus','buses','sorta','metro'],
+['streetcar','trolley','rail'],
+['infrastructure','cip'],
+['sewer','sewers','stormwater','wastewater','msd'],
+['water','waterworks'],
+['trash','garbage','waste','recycling','sanitation'],
+['environment','environmental','sustainability','sustainable','green'],
+['park','parks','parkland','recreation'],
+['business','businesses'],
+['nonprofit','nonprofits'],
+['neighborhood','neighborhoods','community','communities'],
+['health','healthcare'],
+['youth','children','minors','kids','kid','child'],
+['senior','seniors','elderly'],
+['disability','disabled','ada','accessibility','accessible'],
+['election','elections','voting','vote','ballot'],
+['committee','commission','board'],
+['honorary','naming'],
+['liquor','alcohol','alcoholic']
 ];
 function expandTerm(term) {
-  const group = SYNONYM_GROUPS.find(g => g.includes(term));
-  return group || [term];
+const group = SYNONYM_GROUPS.find(g => g.includes(term));
+return group || [term];
 }
 function matchesSearch(haystack, query) {
-  if (!query) return true;
-  const tokens = query.split(/\s+/).filter(Boolean);
-  // Every typed word must be present, but each word may match via any of its synonyms.
-  return tokens.every(tok => expandTerm(tok).some(variant => haystack.includes(variant)));
+if (!query) return true;
+const tokens = query.split(/\s+/).filter(Boolean);
+// Every typed word must be present, but each word may match via any of its synonyms.
+return tokens.every(tok => expandTerm(tok).some(variant => haystack.includes(variant)));
 }
 
 function applyFilters() {
-  const q = document.getElementById('search').value.trim().toLowerCase();
-  const selSponsors = getSelectedSponsors();
-  const sponsorMode = getSponsorMode();
-  const selTags = getSelectedTags();
-  const tagMode = getTagMode();
-  const voteMember = document.getElementById('vote-member-select').value;
-  const voteValue = document.getElementById('vote-value-select').value;
+const q = document.getElementById('search').value.trim().toLowerCase();
+const selSponsors = getSelectedSponsors();
+const sponsorMode = getSponsorMode();
+const selTags = getSelectedTags();
+const tagMode = getTagMode();
+const voteMember = document.getElementById('vote-member-select').value;
+const voteValue = document.getElementById('vote-value-select').value;
 
-  filtered = ALL.filter(r => {
-    if (q) {
-      const hay = `${r.f || ''} ${r.t || ''} ${r.sm || ''}`.toLowerCase();
-      if (!matchesSearch(hay, q)) return false;
-    }
-    if (selSponsors.length) {
-      const itemSp = itemSponsors(r);
-      if (sponsorMode === 'and') {
-        if (!selSponsors.every(s => itemSp.includes(s))) return false;
-      } else {
-        if (!selSponsors.some(s => itemSp.includes(s))) return false;
-      }
-    }
-    if (selTags.length) {
-      const itemTags = (r.tp || '').split('|').map(t => t.trim()).filter(Boolean);
-      if (tagMode === 'and') {
-        if (!selTags.every(t => itemTags.includes(t))) return false;
-      } else {
-        if (!selTags.some(t => itemTags.includes(t))) return false;
-      }
-    }
-    if (voteMember) {
-      // If a vote type is also chosen, that member must appear in that specific
-      // array; otherwise the member must have any recorded vote on the item.
-      if (voteValue) {
-        if (!voteArrayFor(r, voteValue).includes(voteMember)) return false;
-      } else {
-        const anyVote = ['Yes','No','Abstain','Absent','Excused'].some(v => voteArrayFor(r, v).includes(voteMember));
-        if (!anyVote) return false;
-      }
-    }
-    return true;
-  });
-  page = 0;
-  updateTagSummary();
-  updateSponsorSummary();
-  render();
+filtered = ALL.filter(r => {
+if (q) {
+const hay = `${r.f || ''} ${r.t || ''} ${r.sm || ''}`.toLowerCase();
+if (!matchesSearch(hay, q)) return false;
+}
+if (selSponsors.length) {
+const itemSp = itemSponsors(r);
+if (sponsorMode === 'and') {
+if (!selSponsors.every(s => itemSp.includes(s))) return false;
+} else {
+if (!selSponsors.some(s => itemSp.includes(s))) return false;
+}
+}
+if (selTags.length) {
+const itemTags = (r.tp || '').split('|').map(t => t.trim()).filter(Boolean);
+if (tagMode === 'and') {
+if (!selTags.every(t => itemTags.includes(t))) return false;
+} else {
+if (!selTags.some(t => itemTags.includes(t))) return false;
+}
+}
+if (voteMember) {
+// If a vote type is also chosen, that member must appear in that specific
+// array; otherwise the member must have any recorded vote on the item.
+if (voteValue) {
+if (!voteArrayFor(r, voteValue).includes(voteMember)) return false;
+} else {
+const anyVote = ['Yes','No','Abstain','Absent','Excused'].some(v => voteArrayFor(r, v).includes(voteMember));
+if (!anyVote) return false;
+}
+}
+return true;
+});
+page = 0;
+updateTagSummary();
+updateSponsorSummary();
+render();
 }
 function onFilterChange() { applyFilters(); }
 
 function clearFilters() {
-  document.getElementById('search').value = '';
-  document.getElementById('vote-member-select').value = '';
-  document.getElementById('vote-value-select').value = '';
-  document.querySelectorAll('#tag-options input[type=checkbox]').forEach(el => el.checked = false);
-  document.querySelector('input[name="tag-mode"][value="or"]').checked = true;
-  document.querySelectorAll('#sponsor-options input[type=checkbox]').forEach(el => el.checked = false);
-  document.querySelector('input[name="sponsor-mode"][value="or"]').checked = true;
-  applyFilters();
+document.getElementById('search').value = '';
+document.getElementById('vote-member-select').value = '';
+document.getElementById('vote-value-select').value = '';
+document.querySelectorAll('#tag-options input[type=checkbox]').forEach(el => el.checked = false);
+document.querySelector('input[name="tag-mode"][value="or"]').checked = true;
+document.querySelectorAll('#sponsor-options input[type=checkbox]').forEach(el => el.checked = false);
+document.querySelector('input[name="sponsor-mode"][value="or"]').checked = true;
+applyFilters();
 }
 
 function render() {
-  const start = page * PAGE_SIZE;
-  const slice = filtered.slice(start, start + PAGE_SIZE);
-  document.getElementById('result-count').innerHTML =
-    `${filtered.length.toLocaleString()} result${filtered.length === 1 ? '' : 's'}`;
+const start = page * PAGE_SIZE;
+const slice = filtered.slice(start, start + PAGE_SIZE);
+document.getElementById('result-count').innerHTML =
+`${filtered.length.toLocaleString()} result${filtered.length === 1 ? '' : 's'}`;
 
-  const res = document.getElementById('results');
-  if (filtered.length === 0) {
-    res.innerHTML = '<div class="empty">No matching roll call votes</div>';
-    document.getElementById('pagination').innerHTML = '';
-    return;
-  }
+const res = document.getElementById('results');
+if (filtered.length === 0) {
+res.innerHTML = '<div class="empty">No matching roll call votes</div>';
+document.getElementById('pagination').innerHTML = '';
+return;
+}
 
-  res.innerHTML = slice.map((r, idx) => {
-    const rows = memberList(r);
-    const voteHtml = rows.map(v =>
-      `<div><span class="name">${v.name}:</span> ${v.label}</div>`
-    ).join('');
-    const allTagsForItem = (r.tp || '').split('|').map(t => t.trim()).filter(Boolean);
-    const previewTags = allTagsForItem.slice(0, 5);
-    const extraCount = allTagsForItem.length - previewTags.length;
-    const tagsPreviewHtml = previewTags.map(t => `<span class="tag-chip">${t}</span>`).join('')
-      + (extraCount > 0 ? `<span class="tag-chip">+${extraCount} more</span>` : '');
-    const legistarLink = r.legistar_url
-      ? `<div class="legistar-line"><a href="${r.legistar_url}" target="_blank">View on Legistar &rsaquo;</a></div>`
-      : '';
-    return `<div class="docket" onclick="toggleCard(this)">
-      <div class="docket-head">
-        <div class="docket-main">
-          <div class="docket-num">File #${r.f || '—'}</div>
-          <div class="docket-subject">${r.t || r.rt || '(untitled)'}</div>
-          <div class="docket-date">${r.d || ''}${itemSponsors(r).length ? ' &middot; Sponsor: ' + itemSponsors(r).join(', ') : ''}</div>
-          ${tagsPreviewHtml ? `<div class="tag-preview">${tagsPreviewHtml}</div>` : ''}
-        </div>
-        <div class="chevron">&#9662;</div>
-      </div>
-      <div class="docket-body">
-        <div class="field-heading">Description:</div>
-        <div class="field-body">${r.sm || r.rt || 'No description on file.'}</div>
-        <div class="outcome">${outcomeLine(r)}</div>
-        <div class="field-heading">Votes:</div>
-        <div class="vote-list">${voteHtml}</div>
-        ${legistarLink}
-      </div>
-    </div>`;
-  }).join('');
+res.innerHTML = slice.map((r, idx) => {
+const rows = memberList(r);
+const voteHtml = rows.map(v =>
+`<div><span class="name">${v.name}:</span> ${v.label}</div>`
+).join('');
+const allTagsForItem = (r.tp || '').split('|').map(t => t.trim()).filter(Boolean);
+const previewTags = allTagsForItem.slice(0, 5);
+const extraCount = allTagsForItem.length - previewTags.length;
+const tagsPreviewHtml = previewTags.map(t => `<span class="tag-chip">${t}</span>`).join('')
++ (extraCount > 0 ? `<span class="tag-chip">+${extraCount} more</span>` : '');
+const legistarLink = r.legistar_url
+? `<div class="legistar-line"><a href="${r.legistar_url}" target="_blank">View on Legistar &rsaquo;</a></div>`
+: '';
+return `<div class="docket" onclick="toggleCard(this)">
+<div class="docket-head">
+<div class="docket-main">
+<div class="docket-num">File #${r.f || '—'}</div>
+<div class="docket-subject">${r.t || r.rt || '(untitled)'}</div>
+<div class="docket-date">${r.d || ''}${itemSponsors(r).length ? ' &middot; Sponsor: ' + itemSponsors(r).join(', ') : ''}</div>
+${tagsPreviewHtml ? `<div class="tag-preview">${tagsPreviewHtml}</div>` : ''}
+</div>
+<div class="chevron">&#9662;</div>
+</div>
+<div class="docket-body">
+<div class="field-heading">Description:</div>
+<div class="field-body">${r.sm || r.rt || 'No description on file.'}</div>
+<div class="outcome">${outcomeLine(r)}</div>
+<div class="field-heading">Votes:</div>
+<div class="vote-list">${voteHtml}</div>
+${legistarLink}
+<div class="suggest-slot" data-f="${(r.f || '').toString().replace(/"/g, '&quot;')}" data-t="${(r.t || r.rt || '').replace(/"/g, '&quot;')}" data-legistar="${r.legistar_url || ''}" data-page="alternative"></div>
+</div>
+</div>`;
+}).join('');
 
-  renderPagination();
+mountSuggestWidgets();
+renderPagination();
 }
 
 function toggleCard(el) {
-  el.classList.toggle('expanded');
+el.classList.toggle('expanded');
 }
 
 function renderPagination() {
-  const total = Math.ceil(filtered.length / PAGE_SIZE);
-  const pag = document.getElementById('pagination');
-  if (total <= 1) { pag.innerHTML = ''; return; }
-  let html = `<button onclick="goPage(0)" ${page === 0 ? 'disabled' : ''}>first &rsaquo;</button>`;
-  html += `<button onclick="goPage(${page - 1})" ${page === 0 ? 'disabled' : ''}>&lsaquo; prev</button>`;
-  const range = [];
-  for (let i = 0; i < total; i++) {
-    if (i === 0 || i === total - 1 || Math.abs(i - page) <= 2) range.push(i);
-    else if (range[range.length - 1] !== '…') range.push('…');
-  }
-  range.forEach(i => {
-    html += i === '…'
-      ? `<span>&hellip;</span>`
-      : `<button class="${i === page ? 'current' : ''}" onclick="goPage(${i})" ${i === page ? 'disabled' : ''}>${i + 1}</button>`;
-  });
-  html += `<button onclick="goPage(${page + 1})" ${page >= total - 1 ? 'disabled' : ''}>next page &raquo;</button>`;
-  html += `<button onclick="goPage(${total - 1})" ${page >= total - 1 ? 'disabled' : ''}>last page &raquo;&raquo;</button>`;
-  pag.innerHTML = html;
+const total = Math.ceil(filtered.length / PAGE_SIZE);
+const pag = document.getElementById('pagination');
+if (total <= 1) { pag.innerHTML = ''; return; }
+let html = `<button onclick="goPage(0)" ${page === 0 ? 'disabled' : ''}>first &rsaquo;</button>`;
+html += `<button onclick="goPage(${page - 1})" ${page === 0 ? 'disabled' : ''}>&lsaquo; prev</button>`;
+const range = [];
+for (let i = 0; i < total; i++) {
+if (i === 0 || i === total - 1 || Math.abs(i - page) <= 2) range.push(i);
+else if (range[range.length - 1] !== '…') range.push('…');
+}
+range.forEach(i => {
+html += i === '…'
+? `<span>&hellip;</span>`
+: `<button class="${i === page ? 'current' : ''}" onclick="goPage(${i})" ${i === page ? 'disabled' : ''}>${i + 1}</button>`;
+});
+html += `<button onclick="goPage(${page + 1})" ${page >= total - 1 ? 'disabled' : ''}>next page &raquo;</button>`;
+html += `<button onclick="goPage(${total - 1})" ${page >= total - 1 ? 'disabled' : ''}>last page &raquo;&raquo;</button>`;
+pag.innerHTML = html;
 }
 
 function goPage(p) {
-  page = p;
-  render();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+page = p;
+render();
+window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function populateFilterOptions() {
-  const tagSet = new Set();
-  ALL.forEach(r => {
-    (r.tp || '').split('|').map(t => t.trim()).filter(Boolean).forEach(t => tagSet.add(t));
-  });
-  allTags = Array.from(tagSet).sort();
-  const tagOptions = document.getElementById('tag-options');
-  tagOptions.innerHTML = allTags.map((t, i) =>
-    `<div class="tag-option"><input type="checkbox" id="tag-${i}" value="${t}" onchange="onFilterChange()"><label for="tag-${i}">${t}</label></div>`
-  ).join('');
+const tagSet = new Set();
+ALL.forEach(r => {
+(r.tp || '').split('|').map(t => t.trim()).filter(Boolean).forEach(t => tagSet.add(t));
+});
+allTags = Array.from(tagSet).sort();
+const tagOptions = document.getElementById('tag-options');
+tagOptions.innerHTML = allTags.map((t, i) =>
+`<div class="tag-option"><input type="checkbox" id="tag-${i}" value="${t}" onchange="onFilterChange()"><label for="tag-${i}">${t}</label></div>`
+).join('');
 
-  // Sponsor and Voted-by lists always show every known councilmember, not just
-  // those who happen to appear as a sponsor or a recorded vote in the current
-  // dataset — otherwise a member with no matching records yet gets dropped
-  // from the filter entirely, making them impossible to ever select.
-  const allMembers = Array.from(new Set(Object.values(MEMBER_CANONICAL))).sort();
+// Sponsor and Voted-by lists always show every known councilmember, not just
+// those who happen to appear as a sponsor or a recorded vote in the current
+// dataset — otherwise a member with no matching records yet gets dropped
+// from the filter entirely, making them impossible to ever select.
+const allMembers = Array.from(new Set(Object.values(MEMBER_CANONICAL))).sort();
 
-  const sponsorOptions = document.getElementById('sponsor-options');
-  sponsorOptions.innerHTML = allMembers.map((s, i) =>
-    `<div class="tag-option"><input type="checkbox" id="sponsor-${i}" value="${s}" onchange="onFilterChange()"><label for="sponsor-${i}">${s}</label></div>`
-  ).join('');
+const sponsorOptions = document.getElementById('sponsor-options');
+sponsorOptions.innerHTML = allMembers.map((s, i) =>
+`<div class="tag-option"><input type="checkbox" id="sponsor-${i}" value="${s}" onchange="onFilterChange()"><label for="sponsor-${i}">${s}</label></div>`
+).join('');
 
-  const voteMemberSelect = document.getElementById('vote-member-select');
-  allMembers.forEach(name => {
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
-    voteMemberSelect.appendChild(opt);
-  });
+const voteMemberSelect = document.getElementById('vote-member-select');
+allMembers.forEach(name => {
+const opt = document.createElement('option');
+opt.value = name;
+opt.textContent = name;
+voteMemberSelect.appendChild(opt);
+});
 }
 
 async function loadData() {
-  try {
-    const resp = await fetch('council_data.json');
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const raw = await resp.json();
-    if (raw[0] && raw[0]._meta) raw.shift();
-    ALL = raw.filter(r => r.vote_yes && r.vote_yes.length);
-    ALL.sort((a, b) => (b.d || '').localeCompare(a.d || ''));
-    populateFilterOptions();
-    filtered = ALL.slice();
-    render();
-  } catch (e) {
-    document.getElementById('error-box').style.display = 'block';
-    document.getElementById('error-box').textContent =
-      'Could not load data file. Make sure council_data.json is in the same folder as alternative.html. Error: ' + e.message;
-    document.getElementById('results').innerHTML = '';
-  }
+try {
+const resp = await fetch('council_data.json');
+if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+const raw = await resp.json();
+if (raw[0] && raw[0]._meta) raw.shift();
+ALL = raw.filter(r => r.vote_yes && r.vote_yes.length);
+ALL.sort((a, b) => (b.d || '').localeCompare(a.d || ''));
+populateFilterOptions();
+filtered = ALL.slice();
+render();
+} catch (e) {
+document.getElementById('error-box').style.display = 'block';
+document.getElementById('error-box').textContent =
+'Could not load data file. Make sure council_data.json is in the same folder as alternative.html. Error: ' + e.message;
+document.getElementById('results').innerHTML = '';
+}
 }
 
 document.addEventListener('click', (e) => {
-  ['tag-dropdown','sponsor-dropdown'].forEach(id => {
-    const dd = document.getElementById(id);
-    if (dd.open && !dd.contains(e.target)) dd.removeAttribute('open');
-  });
+['tag-dropdown','sponsor-dropdown'].forEach(id => {
+const dd = document.getElementById(id);
+if (dd.open && !dd.contains(e.target)) dd.removeAttribute('open');
+});
 });
 
 loadData();
 </script>
+<script src="suggest.js"></script>
 </body>
 </html>
