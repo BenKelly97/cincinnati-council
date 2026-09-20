@@ -2,6 +2,18 @@
 
 Notable changes to the Cincinnati City Council transparency site, most recent first. Each entry names the files touched and the live GitHub commit.
 
+## 2026-09-20 — Suggest description changes, not just titles
+
+The suggestion widget's first question is now "What would you like to suggest a change to?" (Title or Description) instead of assuming every suggestion is about the title. Two new Form questions capture the current description and which field the visitor picked; the reply text field is now a textarea (descriptions run longer than titles) and its placeholder switches to match the chosen field.
+
+`review.html` mirrors the split: a new Title/Description filter, and the Apply button now writes to `summary_overrides.json` when the suggestion is for a description (previously everything went to `title_overrides.json`), while still logging every row in `suggestion_status.json` the same as before.
+
+`update_pipeline.py` now consolidates `summary_overrides.json` into the CSV's `summary` column on its scheduled run, the same way it already did for title overrides. `index.html`, `alternative.html`, and `members.html` each fetch and merge `summary_overrides.json` at page load too — so an applied description fix is live, and searchable (search already matches against title + summary), immediately rather than waiting on the next pipeline run.
+
+- Added: `summary_overrides.json`, `SUGGESTION_BOX_SETUP.md`
+- Changed: `suggest.js`, `index.html`, `alternative.html`, `members.html`, `review.html`, `update_pipeline.py`, `.github/workflows/weekly_update.yml`
+- Commits: [`c79336b`](https://github.com/BenKelly97/cincinnati-council/commit/c79336b) (suggest.js), [`1b2713b`](https://github.com/BenKelly97/cincinnati-council/commit/1b2713b) (summary_overrides.json), [`16fed34`](https://github.com/BenKelly97/cincinnati-council/commit/16fed34) (index.html), [`360e296`](https://github.com/BenKelly97/cincinnati-council/commit/360e296) (alternative.html), [`d6f2104`](https://github.com/BenKelly97/cincinnati-council/commit/d6f2104) (members.html), [`a81b89b`](https://github.com/BenKelly97/cincinnati-council/commit/a81b89b) (review.html), [`09a7c26`](https://github.com/BenKelly97/cincinnati-council/commit/09a7c26) (update_pipeline.py), [`cf5d8db`](https://github.com/BenKelly97/cincinnati-council/commit/cf5d8db) (SUGGESTION_BOX_SETUP.md), [`2b97400`](https://github.com/BenKelly97/cincinnati-council/commit/2b97400) (weekly_update.yml)
+
 ## 2026-09-20 — Password gate on the review page
 
 `review.html` now shows a password prompt before revealing anything — the pending-suggestions list, the token box, all of it stays hidden until the correct password is entered. The password itself is never stored in the page; only its SHA-256 hash is, computed client-side with the Web Crypto API and checked against the hash on submit. Once unlocked, it stays unlocked for that browser tab/session (`sessionStorage`) — closing the browser clears it.
