@@ -37,6 +37,7 @@ OUTPUT_CSV    = "cincinnati_agenda_items_complete.csv"
 OUTPUT_JSON   = "council_data.json"
 VOTES_FILE    = "votes_api.json"
 TITLE_OVERRIDES_FILE = "title_overrides.json"
+SUMMARY_OVERRIDES_FILE = "summary_overrides.json"
 
 # Cutoff: pull items introduced in the last N days
 LOOKBACK_DAYS = 14
@@ -517,6 +518,37 @@ def main():
                 json.dump(remaining, f, indent=2)
         if remaining:
             print(f"{len(remaining)} title override(s) still pending (file number not in CSV yet): {', '.join(remaining)}")
+
+    # Apply any pending manual description (summary) overrides — same pattern
+    # as the title overrides above, but writing to the CSV's "summary" column
+    # and consuming entries from SUMMARY_OVERRIDES_FILE instead.
+    try:
+        with open(SUMMARY_OVERRIDES_FILE) as f:
+            pending_summary_overrides = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        pending_summary_overrides = {}
+
+    if pending_summary_overrides:
+        with open(OUTPUT_CSV, newline="", encoding="utf-8") as f:
+            all_csv_rows = list(csv.DictReader(f))
+        applied = []
+        for row in all_csv_rows:
+            fn = row.get("file_number", "")
+            if fn in pending_summary_overrides:
+                row["summary"] = pending_summary_overrides[fn]
+                applied.append(fn)
+        if applied:
+            with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=FIELDNAMES, extrasaction="ignore")
+                writer.writeheader()
+                writer.writerows(all_csv_rows)
+            print(f"Applied {len(applied)} pending description override(s): {', '.join(applied)}")
+        remaining = {k: v for k, v in pending_summary_overrides.items() if k not in applied}
+        if remaining != pending_summary_overrides:
+            with open(SUMMARY_OVERRIDES_FILE, "w", encoding="utf-8") as f:
+                json.dump(remaining, f, indent=2)
+        if remaining:
+            print(f"{len(remaining)} description override(s) still pending (file number not in CSV yet): {', '.join(remaining)}")
 
     # Rebuild JSON from tagged rows only
     print(f"\nRebuilding {OUTPUT_JSON}...")
