@@ -204,7 +204,10 @@ async function ghGetJsonWithSha(path) {
   const headers = { 'Accept': 'application/vnd.github+json' };
   const t = getToken();
   if (t) headers['Authorization'] = `Bearer ${t}`;
-  const r = await fetch(`${GH_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}?ref=${GITHUB_BRANCH}`, { headers });
+  // no-store: a cached read here can hand back a stale sha, which then gets
+  // rejected by the PUT below with a 409 ("does not match" the real current
+  // sha) even though nothing actually conflicted — always hit the network.
+  const r = await fetch(`${GH_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}?ref=${GITHUB_BRANCH}`, { headers, cache: 'no-store' });
   if (r.status === 404) return { sha: null, obj: {} };
   if (!r.ok) throw new Error(`Couldn't read ${path} from GitHub (HTTP ${r.status}).`);
   const data = await r.json();
@@ -233,9 +236,29 @@ async function ghPutJson(path, obj, sha, message) {
   if (!r.ok) {
     let detail = '';
     try { detail = (await r.json()).message || ''; } catch (e) {}
-    throw new Error(`GitHub write to ${path} failed (HTTP ${r.status})${detail ? ': ' + detail : '.'}`);
+    const err = new Error(`GitHub write to ${path} failed (HTTP ${r.status})${detail ? ': ' + detail : '.'}`);
+    err.status = r.status;
+    throw err;
   }
   return r.json();
+}
+
+// Read-modify-write with one automatic retry on a 409 (sha conflict): if the
+// sha we read is stale by the time the PUT lands — from caching, or a real
+// concurrent edit — re-read the current sha and reapply the same mutation
+// rather than surfacing the conflict to the admin as a dead end.
+async function ghWriteJson(path, mutate, message) {
+  let ov = await ghGetJsonWithSha(path);
+  mutate(ov.obj);
+  try {
+    await ghPutJson(path, ov.obj, ov.sha, message);
+  } catch (e) {
+    if (e.status !== 409) throw e;
+    ov = await ghGetJsonWithSha(path);
+    mutate(ov.obj);
+    await ghPutJson(path, ov.obj, ov.sha, message);
+  }
+  return ov.obj;
 }
 
 function refreshTokenStatus() {
@@ -347,15 +370,13 @@ async function applySuggestion(rowEl, rowId, fileNumber, field, newValue, btn) {
   showRowMsg(rowEl, '', false);
   const overridesPath = field === 'Description' ? SUMMARY_OVERRIDES_PATH : TITLE_OVERRIDES_PATH;
   try {
-    const ov = await ghGetJsonWithSha(overridesPath);
-    ov.obj[fileNumber] = newValue.trim();
-    await ghPutJson(overridesPath, ov.obj, ov.sha, `Apply suggested ${field.toLowerCase()} for file #${fileNumber}`);
+    await ghWriteJson(overridesPath, (o) => { o[fileNumber] = newValue.trim(); },
+      `Apply suggested ${field.toLowerCase()} for file #${fileNumber}`);
 
-    const st = await ghGetJsonWithSha(SUGGESTION_STATUS_PATH);
-    st.obj[rowId] = { status: 'applied', at: new Date().toISOString(), field, value: newValue.trim() };
-    await ghPutJson(SUGGESTION_STATUS_PATH, st.obj, st.sha, `Mark suggestion for file #${fileNumber} as applied`);
+    STATUS = await ghWriteJson(SUGGESTION_STATUS_PATH,
+      (o) => { o[rowId] = { status: 'applied', at: new Date().toISOString(), field, value: newValue.trim() }; },
+      `Mark suggestion for file #${fileNumber} as applied`);
 
-    STATUS = st.obj;
     render();
   } catch (e) {
     btn.disabled = false; dismissBtn.disabled = false;
@@ -371,10 +392,9 @@ async function dismissSuggestion(rowEl, rowId, fileNumber, btn) {
   btn.textContent = 'Dismissing…';
   showRowMsg(rowEl, '', false);
   try {
-    const st = await ghGetJsonWithSha(SUGGESTION_STATUS_PATH);
-    st.obj[rowId] = { status: 'dismissed', at: new Date().toISOString() };
-    await ghPutJson(SUGGESTION_STATUS_PATH, st.obj, st.sha, `Dismiss suggestion${fileNumber ? ' for file #' + fileNumber : ''}`);
-    STATUS = st.obj;
+    STATUS = await ghWriteJson(SUGGESTION_STATUS_PATH,
+      (o) => { o[rowId] = { status: 'dismissed', at: new Date().toISOString() }; },
+      `Dismiss suggestion${fileNumber ? ' for file #' + fileNumber : ''}`);
     render();
   } catch (e) {
     btn.disabled = false; applyBtn.disabled = false;
