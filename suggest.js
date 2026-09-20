@@ -24,6 +24,8 @@ const SUGGEST_ENTRY = {
     suggestedTitle: 'entry.1576642602',
     comment:        'entry.82458550',
     sourcePage:     'entry.1327166660',
+  currentDescription: 'entry.1514592241',
+  field: 'entry.1602425915',
 };
 /* ========================================================================= */
 
@@ -77,17 +79,23 @@ const SUGGEST_ENTRY = {
    function buildForm(slot) {
          const f = slot.dataset.f || '';
          const t = slot.dataset.t || '';
+    const sm = slot.dataset.sm || '';
          const form = document.createElement('div');
          form.className = 'suggest-form';
          form.innerHTML = `
-               <label>What's wrong?</label>
+               <label>What would you like to suggest a change to?</label>
+      <select class="s-field">
+        <option value="Title">Title</option>
+        <option value="Description">Description</option>
+      </select>
+      <label>What's wrong?</label>
                      <select class="s-type">
-                             <option value="Suggest better title">Suggest a better title</option>
-                                     <option value="Flag inaccurate">Flag this title as inaccurate</option>
+                             <option value="Suggest better title">Suggest an edit</option>
+                                     <option value="Flag inaccurate">Flag as inaccurate</option>
                                            </select>
                                                  <div class="row">
-                                                         <label>Suggested title <span style="font-weight:400;color:var(--text3,#888)">(optional)</span></label>
-                                                                 <input type="text" class="s-title" maxlength="300" placeholder="${escapeHtml(t)}">
+                                                         <label>Suggested replacement <span style="font-weight:400;color:var(--text3,#888)">(optional)</span></label>
+                                                                 <textarea class="s-title" maxlength="2000" placeholder="${escapeHtml(t)}"></textarea>
                                                                        </div>
                                                                              <div class="row">
                                                                                      <label>Why? <span style="font-weight:400;color:var(--text3,#888)">(optional)</span></label>
@@ -103,7 +111,13 @@ const SUGGEST_ENTRY = {
       // Any click inside the form (including typing/clicking into the select,
       // text input, or textarea) must not bubble up to the card's own
       // click-to-expand/collapse handler, or the card collapses mid-edit.
-      form.addEventListener('click', (e) => e.stopPropagation());
+      const fieldSelect = form.querySelector('.s-field');
+    const titleInput = form.querySelector('.s-title');
+    fieldSelect.addEventListener('change', () => {
+      titleInput.placeholder = fieldSelect.value === 'Description' ? sm : t;
+    });
+
+    form.addEventListener('click', (e) => e.stopPropagation());
          form.addEventListener('mousedown', (e) => e.stopPropagation());
 
       form.querySelector('.suggest-cancel').addEventListener('click', (e) => {
@@ -126,6 +140,8 @@ const SUGGEST_ENTRY = {
               params.set(SUGGEST_ENTRY.suggestedTitle, form.querySelector('.s-title').value);
               params.set(SUGGEST_ENTRY.comment, form.querySelector('.s-comment').value);
               params.set(SUGGEST_ENTRY.sourcePage, slot.dataset.page || '');
+      params.set(SUGGEST_ENTRY.currentDescription, slot.dataset.sm || '');
+      params.set(SUGGEST_ENTRY.field, form.querySelector('.s-field').value);
 
                                                                    try {
                                                                              // no-cors: Google Forms doesn't send CORS headers on formResponse,
@@ -153,7 +169,7 @@ const SUGGEST_ENTRY = {
       const trigger = document.createElement('button');
          trigger.type = 'button';
          trigger.className = 'suggest-trigger';
-         trigger.textContent = 'Suggest a better title / flag as inaccurate';
+         trigger.textContent = 'Suggest a title or description change';
          trigger.addEventListener('click', (e) => {
                  e.stopPropagation(); // don't trigger the card's own expand/collapse
                                         trigger.style.display = 'none';
