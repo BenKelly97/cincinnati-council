@@ -1,0 +1,48 @@
+# Changelog
+
+Notable changes to the Cincinnati City Council transparency site, most recent first. Each entry names the files touched and the live GitHub commit.
+
+## 2026-09-20 — Password gate on the review page
+
+`review.html` now shows a password prompt before revealing anything — the pending-suggestions list, the token box, all of it stays hidden until the correct password is entered. The password itself is never stored in the page; only its SHA-256 hash is, computed client-side with the Web Crypto API and checked against the hash on submit. Once unlocked, it stays unlocked for that browser tab/session (`sessionStorage`) — closing the browser clears it.
+
+This sits on top of the existing protections (page is `noindex`/`nofollow` and unlinked from the public site) rather than replacing them, and is separate from the GitHub token that's still required for Apply/Dismiss to actually write to the repo.
+
+- Changed: `review.html`
+- Commit: [`5682d59`](https://github.com/BenKelly97/cincinnati-council/commit/5682d59)
+
+## 2026-09-20 — Weekly pipeline now commits title overrides
+
+One-line fix to the scheduled GitHub Action: `title_overrides.json` was missing from the `git add` list in the Mon/Wed/Fri workflow, so any title fix queued through `review.html`'s Apply button would sit in the override file but never get consolidated into `cincinnati_agenda_items_complete.csv` on the next scheduled run. Added it to the commit step.
+
+- Changed: `.github/workflows/weekly_update.yml`
+- Commit: [`bc24677`](https://github.com/BenKelly97/cincinnati-council/commit/bc24677)
+
+## 2026-09-20 — One-click Apply/Dismiss on the review page
+
+Replaced the old manual workflow (hand-edit the pipeline, check off the row in the Google Sheet) with direct action buttons on `review.html`:
+
+- **Apply title** writes the corrected title straight to `title_overrides.json` in the repo via the GitHub Contents API, so the fix shows up on the live site immediately (the site pages merge overrides over `council_data.json`'s title at render time), and logs the submission as handled in `suggestion_status.json`.
+- **Dismiss** just logs the submission as handled without touching any data.
+- Both require a GitHub personal access token, pasted once into the page and kept only in that browser's `localStorage` — never sent anywhere but GitHub's API.
+- `update_pipeline.py` now reads `title_overrides.json` on its next scheduled run, bakes any pending overrides into the CSV's `clean_title` column, and clears the ones it applied — so the fix survives the full data rebuild instead of only living in the override file.
+- `index.html`, `alternative.html`, and `members.html` each got a small snippet to fetch and merge `title_overrides.json` at page load.
+
+- Changed: `review.html`, `update_pipeline.py`, `index.html`, `alternative.html`, `members.html`
+- Added: `title_overrides.json`, `suggestion_status.json`
+- Commit: [`014e5ad`](https://github.com/BenKelly97/cincinnati-council/commit/014e5ad)
+
+## 2026-09-19 — Fixed card-collapse bug in the suggestion widget
+
+Clicking inside the "suggest a better title / flag inaccurate" form (typing in a field, clicking a button) was bubbling up to the parent card's click handler and collapsing the card mid-submission. Added `stopPropagation()` on click/mousedown inside the form so interacting with it no longer closes the card.
+
+- Changed: `suggest.js`
+- Commit: [`e4d0bc5`](https://github.com/BenKelly97/cincinnati-council/commit/e4d0bc5)
+
+## 2026-09-19 — Launched "suggest a better title / flag inaccurate" widget
+
+Added the public-facing feedback widget to every agenda item card across the site: visitors can suggest a better title or flag one as inaccurate, which posts to a Google Form → Google Sheet. Added `review.html` as the (unauthenticated, unlinked, `noindex`) admin page for reading submissions from the published Sheet CSV.
+
+- Added: `review.html`, `suggest.js`
+- Changed: `index.html`, `alternative.html`, `members.html`
+- Commit: [`3ba0a54`](https://github.com/BenKelly97/cincinnati-council/commit/3ba0a54)
