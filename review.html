@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>Title Suggestions — Admin Review</title>
+<title>Suggestions — Admin Review</title>
 <style>
   :root{
     --bg:#fff; --card-bg:#f7f7f8; --text:#111; --text3:#888;
@@ -74,11 +74,12 @@
 </div>
 
 <div id="app" style="display:none">
-<h1>Title Suggestions</h1>
+<h1>Suggestions</h1>
 <div class="sub">
-  Submissions from the "suggest a title / flag inaccurate" box on the public site.
-  <strong>Apply title</strong> updates the title on the live site right away and queues the fix so
-  the next scheduled data run bakes it in permanently. <strong>Dismiss</strong> just clears a
+  Submissions from the "suggest a title or description change" box on the public site — visitors
+  choose whether they're suggesting a change to a title or to a description.
+  <strong>Apply</strong> updates the title or description on the live site right away and queues the
+  fix so the next scheduled data run bakes it in permanently. <strong>Dismiss</strong> just clears a
   submission from this list without changing any data.
 </div>
 
@@ -95,6 +96,11 @@
 </div>
 
 <div class="toolbar">
+  <select id="filter-field">
+    <option value="">Title + description</option>
+    <option value="Title">Titles only</option>
+    <option value="Description">Descriptions only</option>
+  </select>
   <select id="filter-type">
     <option value="">All types</option>
     <option value="Suggest better title">Suggestions only</option>
@@ -118,9 +124,13 @@
  */
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ4KonoYTYlOp2Td-wT9Z3SO-qBUeYb8Ef834ktMhac93OUM82_zTvzU6Tn9lepkIBfn8V56nUY0p9I/pub?gid=1845170074&single=true&output=csv';
 
-// Column order must match the Google Form's question order exactly:
-// Timestamp, File Number, Current Title, Legistar URL, Type, Suggested Title, Comment, Source Page
-const COLS = ['ts','f','currentTitle','legistarUrl','type','suggestedTitle','comment','sourcePage'];
+// Column order must match the linked Sheet's actual column order. New form
+// questions land as new columns AT THE END of the Sheet regardless of where
+// they sit in the form's visual question order — verified directly against
+// the published Sheet, not assumed from the form layout:
+// Timestamp, File Number, Current Title, Legistar URL, Type, Suggested Title,
+// Comment, Source Page, Current Description, Field
+const COLS = ['ts','f','currentTitle','legistarUrl','type','suggestedTitle','comment','sourcePage','currentDescription','field'];
 
 /*
  * ============================================================================
@@ -133,6 +143,7 @@ const GITHUB_REPO   = 'cincinnati-council';
 const GITHUB_BRANCH = 'main';
 const GH_API = 'https://api.github.com';
 const TITLE_OVERRIDES_PATH   = 'title_overrides.json';
+const SUMMARY_OVERRIDES_PATH = 'summary_overrides.json';
 const SUGGESTION_STATUS_PATH = 'suggestion_status.json';
 const TOKEN_KEY = 'gh_pat_cincinnati_council';
 const PASSWORD_HASH = '7a7db4726ec27397cbbd002d9819a07656cce115b481522a6caa6e24d4725695';
@@ -250,14 +261,22 @@ document.getElementById('token-clear-btn').addEventListener('click', () => {
 let ALL = [];
 let STATUS = {}; // rowId -> {status:'applied'|'dismissed', at, title?}
 
+function fieldOf(r) {
+  // Legacy/empty submissions (from before the Title/Description question
+  // existed) are all title suggestions.
+  return r.field === 'Description' ? 'Description' : 'Title';
+}
+
 function render() {
+  const fieldFilter = document.getElementById('filter-field').value;
   const typeFilter = document.getElementById('filter-type').value;
   const q = document.getElementById('filter-search').value.trim().toLowerCase();
   let rows = ALL.filter(r => {
     if (STATUS[makeRowId(r)]) return false; // already applied or dismissed
+    if (fieldFilter && fieldOf(r) !== fieldFilter) return false;
     if (typeFilter && r.type !== typeFilter) return false;
     if (q) {
-      const hay = `${r.f} ${r.currentTitle} ${r.suggestedTitle} ${r.comment}`.toLowerCase();
+      const hay = `${r.f} ${r.currentTitle} ${r.currentDescription} ${r.suggestedTitle} ${r.comment}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -275,18 +294,21 @@ function render() {
 
   list.innerHTML = rows.map(r => {
     const rowId = escapeHtml(makeRowId(r));
-    const prefill = r.suggestedTitle || r.currentTitle || '';
+    const field = fieldOf(r);
+    const currentVal = field === 'Description' ? r.currentDescription : r.currentTitle;
+    const prefill = r.suggestedTitle || currentVal || '';
     return `
-    <div class="row" data-rowid="${rowId}" data-file="${escapeHtml(r.f)}">
+    <div class="row" data-rowid="${rowId}" data-file="${escapeHtml(r.f)}" data-field="${field}">
       <div class="row-head">
         <span class="file-num">File #${escapeHtml(r.f) || '—'}</span>
+        <span class="type-badge suggest" style="background:var(--card-bg);border:1px solid var(--border);color:var(--text3)">${field}</span>
         <span class="type-badge ${typeBadgeClass(r.type)}">${escapeHtml(r.type) || 'Suggestion'}</span>
         <span class="ts">${escapeHtml(r.ts)}</span>
       </div>
-      <div class="field-label">Current title (at time of submission)</div>
-      <div class="field-val current-title">${escapeHtml(r.currentTitle) || '—'}</div>
+      <div class="field-label">Current ${field.toLowerCase()} (at time of submission)</div>
+      <div class="field-val current-title">${escapeHtml(currentVal) || '—'}</div>
       ${r.suggestedTitle ? `
-        <div class="field-label">Suggested title</div>
+        <div class="field-label">Suggested ${field.toLowerCase()}</div>
         <div class="field-val">${escapeHtml(r.suggestedTitle)}</div>
       ` : ''}
       ${r.comment ? `
@@ -298,8 +320,8 @@ function render() {
         <span style="color:var(--text3)">from ${escapeHtml(r.sourcePage) || 'unknown page'}</span>
       </div>
       <div class="apply-row">
-        <input type="text" class="apply-title-input" value="${escapeHtml(prefill)}" placeholder="Title to apply">
-        <button type="button" class="apply-btn">Apply title</button>
+        <input type="text" class="apply-title-input" value="${escapeHtml(prefill)}" placeholder="${field} to apply">
+        <button type="button" class="apply-btn">Apply ${field.toLowerCase()}</button>
         <button type="button" class="dismiss-btn">Dismiss</button>
       </div>
       <div class="row-msg" style="display:none"></div>
@@ -315,21 +337,22 @@ function showRowMsg(rowEl, text, isErr) {
   el.style.display = text ? 'block' : 'none';
 }
 
-async function applySuggestion(rowEl, rowId, fileNumber, newTitle, btn) {
+async function applySuggestion(rowEl, rowId, fileNumber, field, newValue, btn) {
   if (!fileNumber) { showRowMsg(rowEl, 'This submission has no file number — cannot apply automatically.', true); return; }
-  if (!newTitle || !newTitle.trim()) { showRowMsg(rowEl, 'Enter a title before applying.', true); return; }
+  if (!newValue || !newValue.trim()) { showRowMsg(rowEl, `Enter a ${field.toLowerCase()} before applying.`, true); return; }
   const dismissBtn = rowEl.querySelector('.dismiss-btn');
   btn.disabled = true; dismissBtn.disabled = true;
   const original = btn.textContent;
   btn.textContent = 'Applying…';
   showRowMsg(rowEl, '', false);
+  const overridesPath = field === 'Description' ? SUMMARY_OVERRIDES_PATH : TITLE_OVERRIDES_PATH;
   try {
-    const ov = await ghGetJsonWithSha(TITLE_OVERRIDES_PATH);
-    ov.obj[fileNumber] = newTitle.trim();
-    await ghPutJson(TITLE_OVERRIDES_PATH, ov.obj, ov.sha, `Apply suggested title for file #${fileNumber}`);
+    const ov = await ghGetJsonWithSha(overridesPath);
+    ov.obj[fileNumber] = newValue.trim();
+    await ghPutJson(overridesPath, ov.obj, ov.sha, `Apply suggested ${field.toLowerCase()} for file #${fileNumber}`);
 
     const st = await ghGetJsonWithSha(SUGGESTION_STATUS_PATH);
-    st.obj[rowId] = { status: 'applied', at: new Date().toISOString(), title: newTitle.trim() };
+    st.obj[rowId] = { status: 'applied', at: new Date().toISOString(), field, value: newValue.trim() };
     await ghPutJson(SUGGESTION_STATUS_PATH, st.obj, st.sha, `Mark suggestion for file #${fileNumber} as applied`);
 
     STATUS = st.obj;
@@ -367,9 +390,10 @@ document.getElementById('list').addEventListener('click', (e) => {
   const rowEl = e.target.closest('.row');
   const rowId = rowEl.dataset.rowid;
   const fileNumber = rowEl.dataset.file;
+  const field = rowEl.dataset.field;
   if (applyBtn) {
     const input = rowEl.querySelector('.apply-title-input');
-    applySuggestion(rowEl, rowId, fileNumber, input.value, applyBtn);
+    applySuggestion(rowEl, rowId, fileNumber, field, input.value, applyBtn);
   } else {
     dismissSuggestion(rowEl, rowId, fileNumber, dismissBtn);
   }
@@ -410,6 +434,7 @@ async function load() {
   }
 }
 
+document.getElementById('filter-field').addEventListener('change', render);
 document.getElementById('filter-type').addEventListener('change', render);
 document.getElementById('filter-search').addEventListener('input', render);
 
