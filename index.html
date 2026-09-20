@@ -377,7 +377,7 @@ function render() {
         <div class="expand-actions">
           ${legistarUrl ? `<a href="${legistarUrl}" target="_blank" class="btn-legistar">↗ View on Legistar</a>` : ''}
         </div>
-        <div class="suggest-slot" data-f="${(r.f || '').replace(/"/g, '&quot;')}" data-t="${(r.t || r.rt || '').replace(/"/g, '&quot;')}" data-legistar="${legistarUrl}" data-page="index"></div>
+        <div class="suggest-slot" data-f="${(r.f || '').replace(/"/g, '&quot;')}" data-t="${(r.t || r.rt || '').replace(/"/g, '&quot;')}" data-sm="${(r.sm || '').replace(/"/g, '&quot;')}" data-legistar="${legistarUrl}" data-page="index"></div>
       </div>
     </div>`;
   }).join('');
@@ -441,6 +441,13 @@ async function loadData() {
       if (ovResp.ok) {
         const overrides = await ovResp.json();
         ALL.forEach(r => { if (overrides[r.f]) r.t = overrides[r.f]; });
+      }
+    } catch (e) { /* no pending overrides -- fine */ }
+    try {
+      const smResp = await fetch('summary_overrides.json', { cache: 'no-store' });
+      if (smResp.ok) {
+        const smOverrides = await smResp.json();
+        ALL.forEach(r => { if (smOverrides[r.f]) r.sm = smOverrides[r.f]; });
       }
     } catch (e) { /* no pending overrides -- fine */ }
     populateFilters();
