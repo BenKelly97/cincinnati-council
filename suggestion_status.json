@@ -11,5 +11,10 @@
   "9/19/2026 19:34:03__202602785__Flag inaccurate": {
     "status": "dismissed",
     "at": "2026-09-20T14:43:45.012Z"
+  },
+  "9/20/2026 13:33:14__202602776__Suggest better title": {
+    "status": "applied",
+    "at": "2026-09-20T17:33:27.803Z",
+    "title": "Over-the-Rhine: Legacy and Impact Presentation"
   }
 }
