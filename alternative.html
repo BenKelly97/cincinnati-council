@@ -572,6 +572,13 @@ if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 const raw = await resp.json();
 if (raw[0] && raw[0]._meta) raw.shift();
 ALL = raw.filter(r => r.vote_yes && r.vote_yes.length);
+try {
+const ovResp = await fetch('title_overrides.json', { cache: 'no-store' });
+if (ovResp.ok) {
+const overrides = await ovResp.json();
+ALL.forEach(r => { if (overrides[r.f]) r.t = overrides[r.f]; });
+}
+} catch (e) { /* no pending overrides -- fine */ }
 ALL.sort((a, b) => (b.d || '').localeCompare(a.d || ''));
 populateFilterOptions();
 filtered = ALL.slice();

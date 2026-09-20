@@ -294,6 +294,13 @@ const resp = await fetch('council_data.json');
 const raw = await resp.json();
 if (raw[0] && raw[0]._meta) raw.shift();
 ALL = raw;
+try {
+const ovResp = await fetch('title_overrides.json', { cache: 'no-store' });
+if (ovResp.ok) {
+const overrides = await ovResp.json();
+ALL.forEach(r => { if (overrides[r.f]) r.t = overrides[r.f]; });
+}
+} catch (e) { /* no pending overrides -- fine */ }
 // Build vote lookup
 ALL.forEach(r => {
 if (r.vote_yes) VOTES[r.f] = r;

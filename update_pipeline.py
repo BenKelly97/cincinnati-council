@@ -26,34 +26,6 @@ import xml.etree.ElementTree as ET
 import anthropic
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-
-CINCINNATI_TZ = ZoneInfo("America/New_York")
-
-# ─── NETWORK ─────────────────────────────────────────────────────────────────
-
-def legistar_get(url, headers=None, timeout=30, max_retries=4):
-    for attempt in range(max_retries):
-        try:
-            resp = requests.get(url, headers=headers, timeout=timeout)
-            resp.raise_for_status()
-            return resp
-        except (requests.exceptions.ConnectionError,
-                requests.exceptions.Timeout,
-                requests.exceptions.ChunkedEncodingError) as e:
-            if attempt < max_retries - 1:
-                wait = 2 ** attempt
-                print(f"  [retry {attempt+1}/{max_retries-1}] {type(e).__name__} — waiting {wait}s...")
-                time.sleep(wait)
-            else:
-                raise
-        except requests.exceptions.HTTPError:
-            if resp.status_code in (429, 500, 502, 503, 504) and attempt < max_retries - 1:
-                wait = 2 ** attempt
-                print(f"  [retry {attempt+1}/{max_retries-1}] HTTP {resp.status_code} — waiting {wait}s...")
-                time.sleep(wait)
-            else:
-                raise
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
@@ -64,26 +36,10 @@ EXISTING_CSV  = "cincinnati_agenda_items_complete.csv"
 OUTPUT_CSV    = "cincinnati_agenda_items_complete.csv"
 OUTPUT_JSON   = "council_data.json"
 VOTES_FILE    = "votes_api.json"
+TITLE_OVERRIDES_FILE = "title_overrides.json"
 
 # Cutoff: pull items introduced in the last N days
 LOOKBACK_DAYS = 14
-
-# Cutoff for scraping meeting agenda pages to recover Legistar detail links.
-# Every run only looks at meetings since this many days ago; the link_map is
-# loaded from the existing JSON and accumulated across runs, so this does NOT
-# need to cover full history on every run — see FULL_LINK_BACKFILL below for
-# a one-time pass that seeds every meeting since the site's earliest data.
-LINKS_LOOKBACK_DAYS = 14
-
-# Set env var FULL_LINK_BACKFILL=1 (or pass --full-link-backfill) to scrape
-# every Council/committee meeting since LINK_BACKFILL_START instead of just
-# the last LINKS_LOOKBACK_DAYS. Only items that actually appeared on a
-# meeting agenda can get a link this way — Registrations, Statements,
-# Reports, Communications, and Presentations are typically filed with the
-# Clerk directly and never appear on a meeting agenda, so Legistar's website
-# never exposes a direct detail link for them; they will keep showing
-# without the "View on Legistar" button even after a full backfill.
-LINK_BACKFILL_START = "2018-01-01"
 
 PAGE_SIZE          = 1000
 DELAY_BETWEEN_ITEMS = 0.3
@@ -120,92 +76,6 @@ GEOGRAPHY_TAGS = [
 
 REGISTRATION_TYPES = {'Registration', 'Registration-Update', 'Termination', 'Successor'}
 STATEMENT_TYPES    = {'Statement'}
-
-def rule_based_summary(raw_title):
-    """Generate a short, human-readable summary for Statement/Registration
-    items without calling the AI, based on known Legistar title patterns."""
-    t = (raw_title or "").strip()
-
-    m = re.search(r'Financial Disclosure Statement\s+(?:for\s+)?(.+?)\s*$', t)
-    if m:
-        body = m.group(1).strip().rstrip('.')
-        body = re.sub(r'\s*\(ETHICS\)\s*$', '', body, flags=re.IGNORECASE).strip().rstrip('.')
-        pm = re.match(r'^(.+?)\s*\(([^()]+)\)\s*$', body)
-        if pm:
-            return f"Financial disclosure statement filed for {pm.group(1).strip().rstrip('/').strip()} ({pm.group(2).strip()})"
-        if ',' in body:
-            name, title = body.split(',', 1)
-            return f"Financial disclosure statement filed for {name.strip()} ({title.strip()})"
-        if '/' in body:
-            parts = [p.strip() for p in body.split('/')]
-            name = parts[0]
-            title = '/'.join(parts[1:])
-            return f"Financial disclosure statement filed for {name} ({title})"
-        return f"Financial disclosure statement filed for {body}"
-
-    m = re.search(r'Legislative Agent ((?:\([A-Za-z.\-]+\)\s*)?[A-Za-z.\- ]+?),\s*(.+)$', t)
-    if m:
-        name = re.sub(r'\s+', ' ', m.group(1)).strip()
-        rest = m.group(2).strip().rstrip('.')
-        org_m = re.search(r'\(([^()]+)\)\s*$', rest)
-        if org_m:
-            org = org_m.group(1).strip()
-            return f"Lobbyist registration for {name} representing {org}"
-        role = rest.split(',')[0].strip()
-        return f"Lobbyist registration for {name} ({role})"
-
-    if t.upper().startswith('SUCCESSOR'):
-        return "Successor designation certificates received by Clerk of Council"
-
-    if len(t) > 160:
-        cut = t[:160].rsplit(' ', 1)[0]
-        return cut + '…'
-    return t
-
-def rule_based_title(raw_title, matter_type):
-    """Generate a short, complete-sentence title for Statement/Registration
-    items, avoiding mid-word truncation of the raw Legistar boilerplate."""
-    t = (raw_title or "").strip()
-
-    m = re.search(r'Financial Disclosure Statement\s+(?:for\s+)?(.+?)\s*$', t)
-    if m:
-        body = m.group(1).strip().rstrip('.')
-        body = re.sub(r'\s*\(ETHICS\)\s*$', '', body, flags=re.IGNORECASE).strip().rstrip('.')
-        name = re.split(r'[,/(]', body)[0].strip()
-        if name:
-            return f"Financial Disclosure Statement — {name}"
-
-    m = re.search(r'filing a copy of the ([A-Z][a-zA-Z.\' ]+?)/', t)
-    if m:
-        name = m.group(1).strip()
-        return f"Financial Disclosure Statement — {name}"
-
-    m = re.search(r'(?:Legislative Agent|from)\s+(?:Legislative\s+)?((?:\([A-Za-z.\-]+\)\s*)?[A-Za-z.\- ]+?),', t)
-    if m and 'REGISTRATION' in t.upper():
-        name = re.sub(r'\s+', ' ', m.group(1)).strip()
-        if name and name.lower() not in ('the clerk of council', 'clerk of council'):
-            return f"Lobbyist Registration — {name}"
-
-    if t.upper().startswith('SUCCESSOR'):
-        return "Successor Designation Certificates Filed"
-
-    if matter_type == 'Termination':
-        return "Lobbyist Registration Terminated"
-
-    m = re.search(r'^STATEMENT,\s*\(([^)]+)\)', t, re.IGNORECASE)
-    if m:
-        label = m.group(1).strip().title()
-        return f"Statement — {label}"
-
-    m = re.search(r'^STATEMENT,\s*(?:dated [\d/]+,\s*)?submitted by ([^,]+),', t, re.IGNORECASE)
-    if m:
-        submitter = m.group(1).strip()
-        return f"Statement — {submitter}"
-
-    if matter_type in ('Registration', 'Registration-Update'):
-        return "Lobbyist Registration"
-
-    return "Council Statement"
 
 COUNCILMEMBERS = {
     'Jan-Michele Kearney', 'Meeka Owens', 'Mark Jeffreys', 'Greg Landsman',
@@ -251,7 +121,7 @@ def fetch_page(cutoff_date, skip=0):
     date_str = cutoff_date.strftime('%Y-%m-%dT00:00:00')
     url = f"https://webapi.legistar.com/v1/cincinnatioh/matters?$top={PAGE_SIZE}&$skip={skip}&$filter=MatterIntroDate+ge+datetime'{date_str}'"
     headers = {"Accept": "application/xml"}
-    resp = legistar_get(url, headers=headers, timeout=30)
+    resp = requests.get(url, headers=headers, timeout=30)
     resp.raise_for_status()
     return resp.text
 
@@ -332,12 +202,12 @@ def tag_item(client, item):
     """Tag a single item (used for fallback)."""
     mt = item['matter_type']
     if mt in REGISTRATION_TYPES:
-        item.update({"clean_title": rule_based_title(item['raw_title'], mt), "topic_tags": "registrations and terminations",
-                     "action_type_ai": "registration", "geography": "", "summary": rule_based_summary(item['raw_title']), "tag_status": "success"})
+        item.update({"clean_title": item['raw_title'][:80], "topic_tags": "registrations and terminations",
+                     "action_type_ai": "registration", "geography": "", "summary": "", "tag_status": "success"})
         return item
     if mt in STATEMENT_TYPES:
-        item.update({"clean_title": rule_based_title(item['raw_title'], mt), "topic_tags": "financial statements",
-                     "action_type_ai": "statement", "geography": "", "summary": rule_based_summary(item['raw_title']), "tag_status": "success"})
+        item.update({"clean_title": item['raw_title'][:80], "topic_tags": "financial statements",
+                     "action_type_ai": "statement", "geography": "", "summary": "", "tag_status": "success"})
         return item
 
     try:
@@ -382,7 +252,7 @@ def fetch_recent_event_urls(cutoff_date):
     date_str = cutoff_date.strftime('%Y-%m-%dT00:00:00')
     while True:
         url = f"https://webapi.legistar.com/v1/cincinnatioh/events?$top={PAGE_SIZE}&$skip={skip}&$filter=EventDate+ge+datetime'{date_str}'"
-        resp = legistar_get(url, timeout=30)
+        resp = requests.get(url, timeout=30)
         resp.raise_for_status()
         data = resp.json()
         if not data:
@@ -399,7 +269,7 @@ def fetch_recent_event_urls(cutoff_date):
 
 def scrape_meeting(url):
     try:
-        resp = legistar_get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+        resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
         resp.raise_for_status()
     except:
         return {}
@@ -424,7 +294,6 @@ def build_json(csv_rows, legistar_links, vote_lookup=None):
         fn = r["file_number"]
         rec = {
             "t":           r["clean_title"],
-            "rt":          r["raw_title"] if r.get("raw_title") and r["raw_title"] != r["clean_title"] else None,
             "tp":          r["topic_tags"],
             "a":           r["action_type_ai"],
             "g":           r["geography"],
@@ -451,17 +320,8 @@ def build_json(csv_rows, legistar_links, vote_lookup=None):
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
 
 def main():
-    import sys
-    full_backfill = os.environ.get("FULL_LINK_BACKFILL", "") == "1" or "--full-link-backfill" in sys.argv
-
     cutoff = datetime.today() - timedelta(days=LOOKBACK_DAYS)
     print(f"Cutoff date: {cutoff.strftime('%Y-%m-%d')} ({LOOKBACK_DAYS} days ago)")
-
-    if full_backfill:
-        links_cutoff = datetime.strptime(LINK_BACKFILL_START, "%Y-%m-%d")
-        print(f"FULL_LINK_BACKFILL enabled — will scrape every meeting since {LINK_BACKFILL_START}.")
-    else:
-        links_cutoff = datetime.today() - timedelta(days=LINKS_LOOKBACK_DAYS)
 
     # Load existing CSV
     print(f"\nLoading {EXISTING_CSV}...")
@@ -512,11 +372,11 @@ def main():
             if item['matter_type'] in SKIP_TAG_TYPES:
                 mt = item['matter_type']
                 if mt in REGISTRATION_TYPES:
-                    item.update({"clean_title": rule_based_title(item['raw_title'], mt), "topic_tags": "registrations and terminations",
-                                 "action_type_ai": "registration", "geography": "", "summary": rule_based_summary(item['raw_title']), "tag_status": "success"})
+                    item.update({"clean_title": item['raw_title'][:80], "topic_tags": "registrations and terminations",
+                                 "action_type_ai": "registration", "geography": "", "summary": "", "tag_status": "success"})
                 elif mt in STATEMENT_TYPES:
-                    item.update({"clean_title": rule_based_title(item['raw_title'], mt), "topic_tags": "financial statements",
-                                 "action_type_ai": "statement", "geography": "", "summary": rule_based_summary(item['raw_title']), "tag_status": "success"})
+                    item.update({"clean_title": item['raw_title'][:80], "topic_tags": "financial statements",
+                                 "action_type_ai": "statement", "geography": "", "summary": "", "tag_status": "success"})
                 else:
                     item.update({"clean_title": item['raw_title'][:80], "topic_tags": "elections and governance",
                                  "action_type_ai": "other", "geography": "", "summary": "", "tag_status": "success"})
@@ -580,13 +440,14 @@ def main():
             writer = csv.DictWriter(f, fieldnames=FIELDNAMES, extrasaction="ignore")
             writer.writeheader()
             writer.writerows(tagged_rows)
+        import os
         size_mb = os.path.getsize(OUTPUT_CSV) / 1024 / 1024
         print(f"Tagged-only CSV: {len(tagged_rows)} rows, {size_mb:.1f} MB")
 
-    # Scrape Legistar links for recent (or, in backfill mode, all historical) meetings
-    print(f"\nFetching meeting URLs from API since {links_cutoff.strftime('%Y-%m-%d')}...")
-    event_urls = fetch_recent_event_urls(links_cutoff)
-    print(f"Found {len(event_urls)} meetings. Scraping for legislation links...")
+    # Scrape Legistar links for recent meetings
+    print(f"\nFetching recent meeting URLs from API...")
+    event_urls = fetch_recent_event_urls(cutoff)
+    print(f"Found {len(event_urls)} recent meetings. Scraping for legislation links...")
 
     # Load existing link map from JSON
     link_map = {}
@@ -600,41 +461,12 @@ def main():
     except:
         print("No existing JSON found, starting fresh.")
 
-    # In backfill mode this loop can run for hundreds of meetings, so keep a
-    # checkpoint (scraped meeting URLs + links found so far) that a rerun can
-    # resume from if the job gets interrupted partway through.
-    LINK_CHECKPOINT_FILE = "link_backfill_checkpoint.json"
-    scraped_urls = set()
-    if full_backfill:
-        try:
-            with open(LINK_CHECKPOINT_FILE) as f:
-                ckpt = json.load(f)
-            scraped_urls = set(ckpt.get("scraped_urls", []))
-            link_map.update(ckpt.get("link_map", {}))
-            print(f"Resuming backfill: {len(scraped_urls)} meetings already scraped in a prior run.")
-        except FileNotFoundError:
-            pass
-
-    remaining = [u for u in event_urls if u not in scraped_urls]
-    if full_backfill and len(remaining) < len(event_urls):
-        print(f"Skipping {len(event_urls) - len(remaining)} already-scraped meetings, {len(remaining)} left.")
-
-    for i, url in enumerate(remaining):
-        print(f"  [{i+1}/{len(remaining)}] Scraping...", end="", flush=True)
+    for i, url in enumerate(event_urls):
+        print(f"  [{i+1}/{len(event_urls)}] Scraping...", end="", flush=True)
         links = scrape_meeting(url)
         link_map.update(links)
-        scraped_urls.add(url)
         print(f" {len(links)} links")
         time.sleep(DELAY_HTML)
-
-        if full_backfill and (i + 1) % 50 == 0:
-            with open(LINK_CHECKPOINT_FILE, "w") as f:
-                json.dump({"scraped_urls": sorted(scraped_urls), "link_map": link_map}, f)
-            print(f"  [checkpoint saved: {len(scraped_urls)} meetings, {len(link_map)} links]")
-
-    if full_backfill:
-        with open(LINK_CHECKPOINT_FILE, "w") as f:
-            json.dump({"scraped_urls": sorted(scraped_urls), "link_map": link_map}, f)
 
     # Print tagging cost if any tagging happened
     try:
@@ -653,13 +485,46 @@ def main():
     except:
         print(f"No {VOTES_FILE} found — votes will not be included")
 
+    # Apply any pending manual title overrides (queued by the suggestion
+    # review page) into the CSV so the fix survives this rebuild instead of
+    # only living in council_data.json until the next run overwrites it.
+    # Matched entries are consumed (removed) from TITLE_OVERRIDES_FILE;
+    # unmatched ones are left pending in case the row shows up later.
+    try:
+        with open(TITLE_OVERRIDES_FILE) as f:
+            pending_overrides = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        pending_overrides = {}
+
+    if pending_overrides:
+        with open(OUTPUT_CSV, newline="", encoding="utf-8") as f:
+            all_csv_rows = list(csv.DictReader(f))
+        applied = []
+        for row in all_csv_rows:
+            fn = row.get("file_number", "")
+            if fn in pending_overrides:
+                row["clean_title"] = pending_overrides[fn]
+                applied.append(fn)
+        if applied:
+            with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=FIELDNAMES, extrasaction="ignore")
+                writer.writeheader()
+                writer.writerows(all_csv_rows)
+            print(f"Applied {len(applied)} pending title override(s): {', '.join(applied)}")
+        remaining = {k: v for k, v in pending_overrides.items() if k not in applied}
+        if remaining != pending_overrides:
+            with open(TITLE_OVERRIDES_FILE, "w", encoding="utf-8") as f:
+                json.dump(remaining, f, indent=2)
+        if remaining:
+            print(f"{len(remaining)} title override(s) still pending (file number not in CSV yet): {', '.join(remaining)}")
+
     # Rebuild JSON from tagged rows only
     print(f"\nRebuilding {OUTPUT_JSON}...")
     with open(OUTPUT_CSV, newline="", encoding="utf-8") as f:
         final_rows = [r for r in csv.DictReader(f) if r.get("tag_status") == "success"]
 
     json_records = build_json(final_rows, link_map, vote_lookup)
-    meta = {'_meta': True, 'last_updated': datetime.now(CINCINNATI_TZ).strftime('%Y-%m-%d %H:%M %Z')}
+    meta = {'_meta': True, 'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M')}
     output = [meta] + json_records
 
     with open(OUTPUT_JSON, "w", encoding="utf-8") as f:

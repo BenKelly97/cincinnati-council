@@ -436,6 +436,13 @@ async function loadData() {
       }
     }
     ALL = raw;
+    try {
+      const ovResp = await fetch('title_overrides.json', { cache: 'no-store' });
+      if (ovResp.ok) {
+        const overrides = await ovResp.json();
+        ALL.forEach(r => { if (overrides[r.f]) r.t = overrides[r.f]; });
+      }
+    } catch (e) { /* no pending overrides -- fine */ }
     populateFilters();
     populateStats();
     applyFilters();
