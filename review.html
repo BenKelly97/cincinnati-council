@@ -54,10 +54,26 @@
   .dismiss-btn:disabled{opacity:0.6;cursor:default}
   .row-msg{width:100%;font-size:12px;margin-top:4px}
   .row-msg.err{color:#c0392b}
+  .gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;z-index:10}
+  .gate-box{background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:28px 24px;max-width:320px;width:100%;text-align:center}
+  .gate-box h2{font-size:16px;margin:0 0 14px}
+  .gate-box input{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:14px;margin-bottom:10px}
+  .gate-box button{width:100%;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 10px;font-size:14px;cursor:pointer;font-weight:600}
+  .gate-err{color:#c0392b;font-size:12px;margin-top:8px;min-height:14px}
 </style>
 </head>
 <body>
 
+<div class="gate" id="gate">
+  <div class="gate-box">
+    <h2>Enter password</h2>
+    <input type="password" id="gate-input" autocomplete="off" placeholder="Password">
+    <button type="button" id="gate-btn">Unlock</button>
+    <div class="gate-err" id="gate-err"></div>
+  </div>
+</div>
+
+<div id="app" style="display:none">
 <h1>Title Suggestions</h1>
 <div class="sub">
   Submissions from the "suggest a title / flag inaccurate" box on the public site.
@@ -89,6 +105,7 @@
 </div>
 
 <div id="list"></div>
+</div>
 
 <script>
 /*
@@ -118,6 +135,8 @@ const GH_API = 'https://api.github.com';
 const TITLE_OVERRIDES_PATH   = 'title_overrides.json';
 const SUGGESTION_STATUS_PATH = 'suggestion_status.json';
 const TOKEN_KEY = 'gh_pat_cincinnati_council';
+const PASSWORD_HASH = '7a7db4726ec27397cbbd002d9819a07656cce115b481522a6caa6e24d4725695';
+const GATE_SESSION_KEY = 'review_gate_ok';
 
 function parseCSV(text) {
   const rows = [];
@@ -394,7 +413,42 @@ async function load() {
 document.getElementById('filter-type').addEventListener('change', render);
 document.getElementById('filter-search').addEventListener('input', render);
 
-load();
+async function sha256Hex(str) {
+  const enc = new TextEncoder().encode(str);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function unlock() {
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('app').style.display = '';
+  load();
+}
+
+async function tryUnlock() {
+  const input = document.getElementById('gate-input');
+  const err = document.getElementById('gate-err');
+  const hash = await sha256Hex(input.value);
+  if (hash === PASSWORD_HASH) {
+    sessionStorage.setItem(GATE_SESSION_KEY, '1');
+    err.textContent = '';
+    unlock();
+  } else {
+    err.textContent = 'Wrong password.';
+    input.value = '';
+    input.focus();
+  }
+}
+
+document.getElementById('gate-btn').addEventListener('click', tryUnlock);
+document.getElementById('gate-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') tryUnlock();
+});
+document.getElementById('gate-input').focus();
+
+if (sessionStorage.getItem(GATE_SESSION_KEY) === '1') {
+  unlock();
+}
 </script>
 </body>
 </html>
