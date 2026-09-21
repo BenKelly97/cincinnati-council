@@ -2,6 +2,22 @@
 
 Notable changes to the Cincinnati City Council transparency site, most recent first. Each entry names the files touched and the live GitHub commit.
 
+## 2026-09-21 — Vote scraper was skipping every committee-level vote
+
+`scrape_votes_api.py` only ever queried events where `EventBodyName eq 'Cincinnati City Council'` — full floor sessions. Any item whose only recorded vote happened at a committee meeting (a "Failed of Adoption," an "Indefinitely Postponed," anything that never reached the floor) was invisible to `votes_api.json`, and so invisible to `members.html`'s per-member vote history, even though Legistar has the roll call on record. Dropped that filter — the scraper now walks every Council and committee event, and each vote record carries a new `meeting_body` field so it's clear which body cast it; when a matter gets both a committee vote and a later floor vote, the floor vote still wins.
+
+Ran a one-time backfill from 2020-01-01 to pick up the historical committee votes this had missed (204 new/updated records, 2,830 procedural actions correctly skipped), then rebuilt `council_data.json` so the merged `vote_yes`/`vote_no` fields that `members.html` actually reads are current — the scraper fix alone doesn't reach the site until that merge runs.
+
+- Changed: `scrape_votes_api.py`, `votes_api.json`, `council_data.json`
+- Commits: [`e6ffe60`](https://github.com/BenKelly97/cincinnati-council/commit/e6ffe60) (scrape_votes_api.py), [`dffdde3`](https://github.com/BenKelly97/cincinnati-council/commit/dffdde3) (votes_api.json backfill), [`823b753`](https://github.com/BenKelly97/cincinnati-council/commit/823b753) (council_data.json rebuild)
+
+## 2026-09-21 — Fixed 409 conflict on Apply/Dismiss in the review page
+
+Clicking Apply or Dismiss on `review.html` could fail with `GitHub write to summary_overrides.json failed (HTTP 409): ... does not match ...` — a cached GET response was handing back a stale `sha` to the follow-up write, which GitHub's Contents API rejects as a conflict even though nothing had actually changed. Added `cache: 'no-store'` to the read, and a new `ghWriteJson` helper that retries once on a 409 by re-fetching the current `sha` and reapplying the same edit, instead of surfacing the conflict as a dead end.
+
+- Changed: `review.html`
+- Commit: [`19c1a01`](https://github.com/BenKelly97/cincinnati-council/commit/19c1a01)
+
 ## 2026-09-20 — Suggest description changes, not just titles
 
 The suggestion widget's first question is now "What would you like to suggest a change to?" (Title or Description) instead of assuming every suggestion is about the title. Two new Form questions capture the current description and which field the visitor picked; the reply text field is now a textarea (descriptions run longer than titles) and its placeholder switches to match the chosen field.
