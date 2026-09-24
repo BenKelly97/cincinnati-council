@@ -2,6 +2,15 @@
 
 Notable changes to the Cincinnati City Council transparency site, most recent first. Each entry names the files touched and the live GitHub commit.
 
+## 2026-09-24 — Merged duplicate agenda cards, then recovered 470 records a mistake during that fix had dropped
+
+Legistar occasionally issues two different `matter_id` records under the same `file_number` — most commonly for 2018-2020 items that moved from committee to Council. Since `update_pipeline.py` only dedupes incoming fetches on `matter_id`, 135 of those pairs were rendering as duplicate cards on the site (134 real matter_id collisions plus one unrelated group of 5 rows sharing a blank `file_number`). Merged 131 of those groups, keeping the row with a real terminal status (e.g. `Passed`, `Filed`) and discarding the placeholder row (status `Historical` or a bare committee name), while leaving 3 genuinely ambiguous cases (`201901809`, `201801306`, `201801416`) and the blank-`file_number` group untouched for manual review. A full audit of every discarded row's original content was kept locally.
+
+That first push was built from a stale local copy of the data and, without meaning to, overwrote an automated weekly pipeline run that had landed in between, dropping roughly 470 real, already-tagged agenda items (mostly 2025-2026 items with statuses like `Agenda Ready`, `Filed`, `Passed Emergency`) from the site for three days. Rebuilt the file list against the correct baseline, restored exactly those 470 rows, and re-ran the same merge logic on top — same 131 groups merged, same 3 flagged cases and blank-file_number group left alone, no new duplicates introduced.
+
+- Changed: `cincinnati_agenda_items_complete.csv`, `council_data.json`
+- Commits: [`873ea1f`](https://github.com/BenKelly97/cincinnati-council/commit/873ea1f) (CSV restore + dedup), [`cd1a5f1`](https://github.com/BenKelly97/cincinnati-council/commit/cd1a5f1) (council_data.json rebuild) — supersedes [`5a046bc`](https://github.com/BenKelly97/cincinnati-council/commit/5a046bc) and [`47ba6ca`](https://github.com/BenKelly97/cincinnati-council/commit/47ba6ca)
+
 ## 2026-09-21 — Vote scraper was skipping every committee-level vote
 
 `scrape_votes_api.py` only ever queried events where `EventBodyName eq 'Cincinnati City Council'` — full floor sessions. Any item whose only recorded vote happened at a committee meeting (a "Failed of Adoption," an "Indefinitely Postponed," anything that never reached the floor) was invisible to `votes_api.json`, and so invisible to `members.html`'s per-member vote history, even though Legistar has the roll call on record. Dropped that filter — the scraper now walks every Council and committee event, and each vote record carries a new `meeting_body` field so it's clear which body cast it; when a matter gets both a committee vote and a later floor vote, the floor vote still wins.
