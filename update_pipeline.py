@@ -138,7 +138,7 @@ def parse_page(xml_text):
             "matter_type":      get_text(m, "MatterTypeName"),
             "body":             get_text(m, "MatterBodyName"),
             "status":           get_text(m, "MatterStatusName"),
-            "requester":        get_text(m, "MatterRequester"),
+            "requester":        resolve_requester(get_text(m, "MatterRequester"), title),
             "intro_date":       get_text(m, "MatterIntroDate")[:10],
             "agenda_date":      get_text(m, "MatterAgendaDate")[:10],
             "passed_date":      get_text(m, "MatterPassedDate")[:10],
@@ -232,6 +232,88 @@ def tag_item(client, item):
         item.update({"clean_title": "", "topic_tags": "", "action_type_ai": "",
                      "geography": "", "summary": "", "tag_status": f"error: {e}"})
     return item
+
+# ─── SPONSOR NAME PARSING (fallback for blank/committee MatterRequester) ──────
+# Legistar's MatterRequester field is often blank or set to a committee name
+# even when the matter title clearly names the sponsoring councilmember(s)
+# (e.g. "submitted by Councilmember Albi"). When that happens, parse the
+# sponsor(s) out of the title text instead, so items are still attributable
+# on the site. Added 2026-09-24/25 after discovering the Sponsor filter
+# returned 0 results for Anna Albi despite her having sponsored dozens of
+# items — her MatterRequester was consistently null/a committee name.
+
+SURNAME_TO_CANONICAL = {
+    'albi': 'Anna Albi',
+    'cramerding': 'Jeff Cramerding',
+    'james': 'Ryan James',
+    'jeffreys': 'Mark Jeffreys',
+    'johnson': 'Scotty Johnson',
+    'kearney': 'Jan-Michele Kearney',
+    'nolan': 'Evan Nolan',
+    'owens': 'Meeka Owens',
+    'walsh': 'Seth Walsh',
+    'parks': 'Victoria Parks',
+    'landsman': 'Greg Landsman',
+    'seelbach': 'Chris Seelbach',
+    'sittenfeld': 'P.G. Sittenfeld',
+    'mann': 'David Mann',
+    'harris': 'Reggie Harris',
+    'smitherman': 'Christopher Smitherman',
+    'sundermann': 'Betsy Sundermann',
+    'young': 'Wendell Young',
+    'pastor': 'Jeff Pastor',
+    'keating': 'Liz Keating',
+    'goodin': 'Steve Goodin',
+}
+INDIVIDUALS = set(SURNAME_TO_CANONICAL.values()) | {'Mayor Aftab Pureval', 'Mayor John Cranley', 'City Manager'}
+
+_ALL_VARIANTS = {}
+for _surname_key, _canon in SURNAME_TO_CANONICAL.items():
+    _ALL_VARIANTS[_surname_key] = _canon
+    _ALL_VARIANTS[_canon.lower()] = _canon
+
+_NAME_ALTERNATION = '|'.join(re.escape(v) for v in sorted(_ALL_VARIANTS.keys(), key=len, reverse=True))
+_NAME_RE = re.compile(r'\b(' + _NAME_ALTERNATION + r')\b', re.IGNORECASE)
+
+_TERMINATORS = [
+    r',\s*from\s',
+    r'\bfrom\s',
+    r',\s*dated\s',
+    r',?\s*WE MOVE\b',
+    r'\(BALANCE',
+    r'\(STATEMENT',
+    r',\s*[A-Z]{4,}',
+]
+
+def parse_sponsors_from_title(title):
+    if not title:
+        return []
+    m = re.search(r'submitted by\s+', title, re.IGNORECASE)
+    if not m:
+        return []
+    tail = title[m.end():]
+    cut = len(tail)
+    for pat in _TERMINATORS:
+        mm = re.search(pat, tail)
+        if mm:
+            cut = min(cut, mm.start())
+    segment = tail[:cut]
+    found = []
+    for mm in _NAME_RE.finditer(segment):
+        canon = _ALL_VARIANTS[mm.group(1).lower()]
+        if canon not in found:
+            found.append(canon)
+    return found
+
+def resolve_requester(existing_rq, raw_title):
+    existing = (existing_rq or '').strip()
+    parsed = parse_sponsors_from_title(raw_title)
+    if not parsed:
+        return existing
+    if existing in INDIVIDUALS:
+        combined = [existing] + [p for p in parsed if p != existing]
+        return ', '.join(combined)
+    return ', '.join(parsed)
 
 # ─── SPONSOR NORMALIZATION ────────────────────────────────────────────────────
 
