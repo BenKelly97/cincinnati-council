@@ -2,6 +2,15 @@
 
 Notable changes to the Cincinnati City Council transparency site, most recent first. Each entry names the files touched and the live GitHub commit.
 
+## 2026-09-25 — Sponsor filter returned 0 results for members whose Legistar requester field was blank
+
+The Sponsor filter on `alternative.html` reads the `requester` field, which came straight from Legistar's `MatterRequester` with no fallback. That field is frequently null or set to a committee name even when the item's title plainly names the sponsor (e.g. "submitted by Councilmember Albi") — caught because Anna Albi's Sponsor filter returned 0 results despite her having sponsored dozens of items. 3,511 of 12,913 records had a blank requester for this reason.
+
+Added a parser to `update_pipeline.py` that reads the sponsor(s) out of the title's "submitted by ..." clause (matching known councilmember surnames and full names, stopping before the drafter/operative clause) whenever `MatterRequester` is blank or not a recognized individual, and unions it with an already-valid single name so co-sponsors aren't dropped either. Tested against the full dataset with zero false positives — every remaining blank is a legitimate City Manager/Mayor/Clerk of Council filing with no councilmember sponsor. 2,021 rows updated (1,788 newly filled, 233 gained a co-sponsor); Anna Albi now shows 172 sponsored items under the site's own filter logic. Backfilled the existing CSV with the same logic, not just future pipeline runs. `raw_title` is untouched — this only corrects the derived `requester` column.
+
+- Changed: `update_pipeline.py`, `cincinnati_agenda_items_complete.csv`, `council_data.json`
+- Commit: [`61f703b`](https://github.com/BenKelly97/cincinnati-council/commit/61f703b)
+
 ## 2026-09-24 — Merged duplicate agenda cards, then recovered 470 records a mistake during that fix had dropped
 
 Legistar occasionally issues two different `matter_id` records under the same `file_number` — most commonly for 2018-2020 items that moved from committee to Council. Since `update_pipeline.py` only dedupes incoming fetches on `matter_id`, 135 of those pairs were rendering as duplicate cards on the site (134 real matter_id collisions plus one unrelated group of 5 rows sharing a blank `file_number`). Merged 131 of those groups, keeping the row with a real terminal status (e.g. `Passed`, `Filed`) and discarding the placeholder row (status `Historical` or a bare committee name), while leaving 3 genuinely ambiguous cases (`201901809`, `201801306`, `201801416`) and the blank-`file_number` group untouched for manual review. A full audit of every discarded row's original content was kept locally.
