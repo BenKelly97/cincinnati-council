@@ -21,6 +21,8 @@
 --seq-300:#6da7ec; --seq-350:#5598e7; --seq-400:#3987e5; --seq-450:#2a78d6;
 --seq-500:#256abf; --seq-550:#1c5cab; --seq-600:#184f95; --seq-650:#104281; --seq-700:#0d366b;
 --null-fill:#dcdbd7;
+--trend-line:#2a78d6;
+--trend-area:rgba(42,120,214,0.12);
 }
 @media(prefers-color-scheme:dark){
 :root{
@@ -35,6 +37,8 @@
 --navy:#0d1f38;
 --serif-link:#8fa9d9;
 --null-fill:#2c2a26;
+--trend-line:#6da7ec;
+--trend-area:rgba(109,167,236,0.18);
 }
 }
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--page-bg);color:var(--text);min-height:100vh;font-size:16px;line-height:1.5}
@@ -139,6 +143,22 @@ tr.datarow{cursor:pointer}
 .detail-item a{font-size:12.5px;text-decoration:none}
 .detail-item a:hover{text-decoration:underline}
 
+.trend-wrap{margin-bottom:1.5rem}
+.trend-head{font-size:13px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text3);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.trend-empty{color:var(--text3);font-size:13.5px;font-style:italic}
+.trend-svg{width:100%;height:200px;display:block;overflow:visible;cursor:crosshair}
+.trend-svg:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.trend-grid{stroke:var(--border);stroke-width:1}
+.trend-axis-label{font-size:11px;fill:var(--text3);font-variant-numeric:tabular-nums}
+.trend-area{fill:var(--trend-area);stroke:none}
+.trend-line-path{fill:none;stroke:var(--trend-line);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.trend-dot{stroke:var(--card-bg);stroke-width:2}
+.trend-dot-agree{fill:var(--trend-line)}
+.trend-dot-disagree{fill:var(--red)}
+.trend-end-label{font-size:12.5px;font-weight:700;fill:var(--text)}
+.trend-crosshair{stroke:var(--text3);stroke-width:1;stroke-dasharray:2,2}
+.trend-hover-dot{fill:var(--card-bg);stroke:var(--trend-line);stroke-width:2}
+
 .related-footer{border-top:1px solid var(--border);margin-top:2.5rem;padding-top:1.25rem}
 .related-footer h2{font-family:Georgia,serif;font-size:17px;margin-bottom:10px}
 .related-footer ul{list-style:none}
@@ -222,6 +242,7 @@ td.cell{width:32px}
 </div>
 <button class="toggle-btn" id="detailClose">Close</button>
 </div>
+<div class="trend-wrap" id="trendWrap"></div>
 <div class="detail-cols">
 <div class="detail-col">
 <h3>Voted the same way (<span id="agreeCount"></span>)</h3>
@@ -476,6 +497,166 @@ td.cell{width:32px}
     return item;
   }
 
+  function showTrendTip(e, p){
+    var valSpan = document.createElement('span');
+    valSpan.className = 'tt-val';
+    valSpan.textContent = p.pct.toFixed(1) + '% agreement through this vote';
+    var dateSpan = document.createElement('span');
+    dateSpan.className = 'tt-names';
+    dateSpan.textContent = fmtDate(p.date) + ' · ' + (p.agree ? 'Voted the same' : 'Voted differently') + ' · vote ' + p.n + ' of ' + p.total;
+    var titleSpan = document.createElement('span');
+    titleSpan.className = 'tt-names';
+    titleSpan.textContent = p.title || '';
+    tooltip.textContent = '';
+    tooltip.appendChild(valSpan);
+    tooltip.appendChild(dateSpan);
+    tooltip.appendChild(titleSpan);
+    tooltip.classList.add('show');
+    positionTip(e);
+  }
+
+  function svgEl(tag, attrs){
+    var el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (var k in attrs){ el.setAttribute(k, attrs[k]); }
+    return el;
+  }
+
+  function buildTrendChart(a, b, chrono){
+    var wrap = document.getElementById('trendWrap');
+    wrap.textContent = '';
+
+    var head = document.createElement('div');
+    head.className = 'trend-head';
+    head.textContent = 'Agreement rate over time';
+    wrap.appendChild(head);
+
+    if (chrono.length < 2){
+      var msg = document.createElement('p');
+      msg.className = 'trend-empty';
+      msg.textContent = chrono.length === 1 ?
+        'Only one shared contested vote so far — not enough to chart a trend.' :
+        'No shared contested votes to chart.';
+      wrap.appendChild(msg);
+      return;
+    }
+
+    var W = 900, H = 200, padL = 36, padR = 10, padT = 12, padB = 24;
+    var plotW = W - padL - padR, plotH = H - padT - padB;
+
+    var dates = chrono.map(function(r){ return Date.parse(r.d); });
+    var minT = dates[0], maxT = dates[dates.length - 1];
+    var span = (maxT - minT) || 1;
+
+    var cumAgree = 0;
+    var pts = chrono.map(function(r, i){
+      var isAgree = voteFor(r, a) === voteFor(r, b);
+      if (isAgree) cumAgree++;
+      var pct = cumAgree / (i + 1) * 100;
+      return {
+        x: padL + ((dates[i] - minT) / span) * plotW,
+        y: padT + (1 - pct / 100) * plotH,
+        pct: pct, date: r.d, title: r.t, agree: isAgree, n: i + 1, total: chrono.length
+      };
+    });
+
+    var svg = svgEl('svg', {
+      viewBox: '0 0 ' + W + ' ' + H,
+      preserveAspectRatio: 'none',
+      class: 'trend-svg',
+      tabindex: '0',
+      role: 'img',
+      'aria-label': 'Cumulative agreement rate between ' + a + ' and ' + b + ' over time, from ' +
+        fmtDate(chrono[0].d) + ' to ' + fmtDate(chrono[chrono.length - 1].d) + ', ending at ' +
+        pts[pts.length - 1].pct.toFixed(1) + ' percent agreement.'
+    });
+
+    [0, 50, 100].forEach(function(v){
+      var y = padT + (1 - v / 100) * plotH;
+      svg.appendChild(svgEl('line', {x1: padL, x2: W - padR, y1: y, y2: y, class: 'trend-grid'}));
+      var t = svgEl('text', {x: padL - 8, y: y + 4, class: 'trend-axis-label', 'text-anchor': 'end'});
+      t.textContent = v + '%';
+      svg.appendChild(t);
+    });
+
+    var t1 = svgEl('text', {x: padL, y: H - 6, class: 'trend-axis-label', 'text-anchor': 'start'});
+    t1.textContent = fmtDate(chrono[0].d);
+    svg.appendChild(t1);
+    var t2 = svgEl('text', {x: W - padR, y: H - 6, class: 'trend-axis-label', 'text-anchor': 'end'});
+    t2.textContent = fmtDate(chrono[chrono.length - 1].d);
+    svg.appendChild(t2);
+
+    var areaD = 'M' + pts[0].x.toFixed(1) + ',' + (padT + plotH).toFixed(1);
+    pts.forEach(function(p){ areaD += ' L' + p.x.toFixed(1) + ',' + p.y.toFixed(1); });
+    areaD += ' L' + pts[pts.length - 1].x.toFixed(1) + ',' + (padT + plotH).toFixed(1) + ' Z';
+    svg.appendChild(svgEl('path', {d: areaD, class: 'trend-area'}));
+
+    var lineD = pts.map(function(p, i){ return (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' ');
+    svg.appendChild(svgEl('path', {d: lineD, class: 'trend-line-path'}));
+
+    pts.forEach(function(p){
+      svg.appendChild(svgEl('circle', {
+        cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 4,
+        class: p.agree ? 'trend-dot trend-dot-agree' : 'trend-dot trend-dot-disagree'
+      }));
+    });
+
+    var last = pts[pts.length - 1];
+    var endLabel = svgEl('text', {
+      x: Math.max(padL, last.x - 6), y: Math.max(padT + 10, last.y - 10),
+      class: 'trend-end-label', 'text-anchor': 'end'
+    });
+    endLabel.textContent = last.pct.toFixed(0) + '%';
+    svg.appendChild(endLabel);
+
+    var crosshair = svgEl('line', {x1: 0, x2: 0, y1: padT, y2: padT + plotH, class: 'trend-crosshair'});
+    crosshair.style.display = 'none';
+    svg.appendChild(crosshair);
+    var hoverDot = svgEl('circle', {r: 5, class: 'trend-hover-dot'});
+    hoverDot.style.display = 'none';
+    svg.appendChild(hoverDot);
+
+    var hitRect = svgEl('rect', {x: 0, y: 0, width: W, height: H, fill: 'transparent'});
+    svg.appendChild(hitRect);
+
+    function nearestIdx(clientX){
+      var rect = svg.getBoundingClientRect();
+      var scaleX = rect.width ? (W / rect.width) : 1;
+      var xIn = (clientX - rect.left) * scaleX;
+      var best = 0, bestD = Infinity;
+      pts.forEach(function(p, i){
+        var d = Math.abs(p.x - xIn);
+        if (d < bestD){ bestD = d; best = i; }
+      });
+      return best;
+    }
+
+    function onMove(e){
+      var i = nearestIdx(e.clientX);
+      var p = pts[i];
+      crosshair.setAttribute('x1', p.x); crosshair.setAttribute('x2', p.x);
+      crosshair.style.display = '';
+      hoverDot.setAttribute('cx', p.x); hoverDot.setAttribute('cy', p.y);
+      hoverDot.style.display = '';
+      showTrendTip(e, p);
+    }
+    function onLeave(){
+      crosshair.style.display = 'none';
+      hoverDot.style.display = 'none';
+      hideTip();
+    }
+    svg.addEventListener('pointermove', onMove);
+    svg.addEventListener('pointerleave', onLeave);
+    svg.addEventListener('focus', function(){
+      var rect = svg.getBoundingClientRect();
+      var lastPt = pts[pts.length - 1];
+      var fakeX = rect.left + (lastPt.x / W) * rect.width;
+      onMove({clientX: fakeX});
+    });
+    svg.addEventListener('blur', onLeave);
+
+    wrap.appendChild(svg);
+  }
+
   var detailPanel = document.getElementById('detailPanel');
   var detailTitle = document.getElementById('detailTitle');
   var detailSub = document.getElementById('detailSub');
@@ -494,9 +675,12 @@ td.cell{width:32px}
     var matches = CONTESTED.filter(function(rec){
       return voteFor(rec, a) !== null && voteFor(rec, b) !== null;
     });
+    var chrono = matches.slice().sort(function(x, y){ return (x.d || '').localeCompare(y.d || ''); });
     matches.sort(function(x, y){ return (y.d || '').localeCompare(x.d || ''); });
     var agree = matches.filter(function(rec){ return voteFor(rec, a) === voteFor(rec, b); });
     var disagree = matches.filter(function(rec){ return voteFor(rec, a) !== voteFor(rec, b); });
+
+    buildTrendChart(a, b, chrono);
 
     detailTitle.textContent = a + ' & ' + b;
     if (matches.length === 0){
