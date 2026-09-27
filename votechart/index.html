@@ -406,10 +406,11 @@ td.cell{width:32px}
   corner.className = 'corner';
   corner.setAttribute('scope','col');
   headRow.appendChild(corner);
-  members.forEach(function(m){
+  members.forEach(function(m, mi){
     var th = document.createElement('th');
     th.className = 'colhead';
     th.setAttribute('scope','col');
+    th.style.zIndex = String(members.length - mi + 2);
     var span = document.createElement('span');
     span.textContent = m;
     th.appendChild(span);
