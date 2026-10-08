@@ -1,10 +1,17 @@
 """
-Cincinnati Legistar — Weekly Update Pipeline
-=============================================
-Pulls new agenda items from the past two weeks, tags them with Claude,
-deduplicates against the existing CSV, and appends new records only.
-Also runs scrape_links to get Legistar URLs for new items.
-Then rebuilds council_data.json ready to upload to GitHub.
+Cincinnati Legistar — Update Pipeline
+======================================
+Keeps the site data in step with Legistar:
+
+  1. Pulls matters introduced in the last LOOKBACK_DAYS days.
+  2. Pulls matters MODIFIED in the last MODIFIED_LOOKBACK_DAYS days. This
+     catches matters entered late with an earlier introduction date, and
+     status changes on older matters.
+  3. Adds matters that are not in the CSV yet (tagged with Claude).
+  4. Refreshes status, type, body, dates and enactment number on matters
+     already in the CSV, so "Agenda Ready" rows move to their final status.
+  5. Scrapes Legistar links for recent meetings.
+  6. Rebuilds council_data.json.
 
 REQUIREMENTS:
     pip install requests anthropic beautifulsoup4
@@ -14,14 +21,22 @@ FILES NEEDED IN SAME FOLDER:
     council_data.json                     (your existing site data)
 
 OUTPUT:
-    cincinnati_agenda_items_complete.csv  (updated with new records appended)
+    cincinnati_agenda_items_complete.csv  (updated)
     council_data.json                     (rebuilt, ready for GitHub upload)
 
 USAGE:
-    python3 update_pipeline.py
+    python3 update_pipeline.py                  normal run
+    python3 update_pipeline.py --dry-run        fetch and compare only; change nothing
+    python3 update_pipeline.py --full-sync      compare every matter since 2018-01-01
+    python3 update_pipeline.py --full-sync --since 2020-01-01
+    python3 update_pipeline.py --modified-days 60
+
+Each run that finds differences also writes sync_changes.csv (one row per
+field changed) and, for --full-sync, sync_not_on_legistar.csv (CSV rows that
+Legistar did not return; these are reported, never deleted).
 """
 
-import csv, re, time, json, requests
+import argparse, csv, re, sys, time, json, requests
 import xml.etree.ElementTree as ET
 import anthropic
 from bs4 import BeautifulSoup
@@ -41,6 +56,12 @@ SUMMARY_OVERRIDES_FILE = "summary_overrides.json"
 
 # Cutoff: pull items introduced in the last N days
 LOOKBACK_DAYS = 14
+# Also pull items MODIFIED in the last N days (late entries, status changes)
+MODIFIED_LOOKBACK_DAYS = 21
+# Default start for --full-sync
+FULL_SYNC_SINCE = "2018-01-01"
+
+API_BASE = os.environ.get("LEGISTAR_API_BASE", "https://webapi.legistar.com/v1/cincinnatioh").rstrip("/")
 
 PAGE_SIZE          = 1000
 DELAY_BETWEEN_ITEMS = 0.3
@@ -118,13 +139,41 @@ def strip_rtf(text):
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
-def fetch_page(cutoff_date, skip=0):
-    date_str = cutoff_date.strftime('%Y-%m-%dT00:00:00')
-    url = f"https://webapi.legistar.com/v1/cincinnatioh/matters?$top={PAGE_SIZE}&$skip={skip}&$filter=MatterIntroDate+ge+datetime'{date_str}'"
-    headers = {"Accept": "application/xml"}
-    resp = requests.get(url, headers=headers, timeout=30)
-    resp.raise_for_status()
-    return resp.text
+def http_get_text(url, headers=None, tries=3):
+    """GET with retries; raises after the last attempt."""
+    for attempt in range(1, tries + 1):
+        try:
+            resp = requests.get(url, headers=headers or {}, timeout=60)
+            resp.raise_for_status()
+            return resp.text
+        except Exception as e:
+            if attempt == tries:
+                raise
+            print(f"    request failed ({e}); retry {attempt}/{tries - 1}")
+            time.sleep(5 * attempt)
+
+def fetch_matters(flt, label):
+    """Page through /matters with an OData filter.
+    Returns (matters, complete). complete is False if a page failed after retries."""
+    out, skip, page = [], 0, 1
+    while True:
+        url = (f"{API_BASE}/matters?$top={PAGE_SIZE}&$skip={skip}"
+               f"&$filter={flt}&$orderby=MatterId")
+        try:
+            items = parse_page(http_get_text(url, {"Accept": "application/xml"}))
+        except Exception as e:
+            print(f"  ERROR ({label}, page {page}): {e}")
+            return out, False
+        print(f"  {label}: page {page}, {len(items)} records")
+        out.extend(items)
+        if len(items) < PAGE_SIZE:
+            return out, True
+        skip += PAGE_SIZE
+        page += 1
+        time.sleep(DELAY_BETWEEN_PAGES)
+
+def odata_date(d):
+    return d.strftime('%Y-%m-%dT00:00:00')
 
 def parse_page(xml_text):
     root = ET.fromstring(xml_text)
@@ -145,6 +194,7 @@ def parse_page(xml_text):
             "enactment_number": get_text(m, "MatterEnactmentNumber"),
             "raw_title":        title,
             "notes":            notes[:500] if notes else "",
+            "modified_utc":     get_text(m, "MatterLastModifiedUtc"),
         }
         matters.append(matter)
     return matters
@@ -334,10 +384,8 @@ def fetch_recent_event_urls(cutoff_date):
     skip = 0
     date_str = cutoff_date.strftime('%Y-%m-%dT00:00:00')
     while True:
-        url = f"https://webapi.legistar.com/v1/cincinnatioh/events?$top={PAGE_SIZE}&$skip={skip}&$filter=EventDate+ge+datetime'{date_str}'"
-        resp = requests.get(url, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
+        url = f"{API_BASE}/events?$top={PAGE_SIZE}&$skip={skip}&$filter=EventDate+ge+datetime'{date_str}'"
+        data = json.loads(http_get_text(url))
         if not data:
             break
         for e in data:
@@ -400,11 +448,120 @@ def build_json(csv_rows, legistar_links, vote_lookup=None):
         out.append(rec)
     return out
 
+# ─── SYNC HELPERS ─────────────────────────────────────────────────────────────
+
+# Fields refreshed on rows that are already in the CSV. Titles, summaries,
+# tags and sponsors are left alone (they are AI-generated or hand-corrected).
+REFRESH_FIELDS = ["file_number", "matter_type", "body", "status", "intro_date",
+                  "agenda_date", "passed_date", "enactment_number"]
+
+def looks_like_body_name(status):
+    """Legistar stores a committee name in the status field on some old
+    matters (for example BUDGET AND FINANCE COMMITTEE). Not a real status."""
+    return len(status) > 8 and status.isupper()
+
+def refresh_row(row, m):
+    """Copy changed fields from Legistar matter m into CSV row. Returns {field: (old, new)}."""
+    changes = {}
+    for f in REFRESH_FIELDS:
+        new = (m.get(f) or "").strip()
+        old = (row.get(f) or "").strip()
+        if not new or new == old:
+            continue
+        if f == "status" and looks_like_body_name(new):
+            continue
+        row[f] = new
+        changes[f] = (old, new)
+    return changes
+
+def tag_new_items(items):
+    """Tag items with Claude (skipping low-value types). Mutates items.
+    Returns (input_tokens, output_tokens)."""
+    total_input_tokens = 0
+    total_output_tokens = 0
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+
+    to_tag = []
+    for item in items:
+        if item['matter_type'] in SKIP_TAG_TYPES:
+            mt = item['matter_type']
+            if mt in REGISTRATION_TYPES:
+                item.update({"clean_title": item['raw_title'][:80], "topic_tags": "registrations and terminations",
+                             "action_type_ai": "registration", "geography": "", "summary": "", "tag_status": "success"})
+            elif mt in STATEMENT_TYPES:
+                item.update({"clean_title": item['raw_title'][:80], "topic_tags": "financial statements",
+                             "action_type_ai": "statement", "geography": "", "summary": "", "tag_status": "success"})
+            else:
+                item.update({"clean_title": item['raw_title'][:80], "topic_tags": "elections and governance",
+                             "action_type_ai": "other", "geography": "", "summary": "", "tag_status": "success"})
+        else:
+            to_tag.append(item)
+
+    skipped = len(items) - len(to_tag)
+    print(f"\nTagging {len(to_tag)} items with Claude (skipping {skipped} low-value types)...")
+
+    total_batches = (len(to_tag) + BATCH_SIZE - 1) // BATCH_SIZE
+    for batch_start in range(0, len(to_tag), BATCH_SIZE):
+        batch = to_tag[batch_start:batch_start + BATCH_SIZE]
+        batch_num = batch_start // BATCH_SIZE
+        print(f"  Batch {batch_num + 1}/{total_batches}: {len(batch)} items...", end="", flush=True)
+        results, in_tok, out_tok = tag_batch(client, batch)
+        total_input_tokens += in_tok
+        total_output_tokens += out_tok
+        cost_so_far = (total_input_tokens/1_000_000*HAIKU_INPUT_COST) + (total_output_tokens/1_000_000*HAIKU_OUTPUT_COST)
+        print(f" ${cost_so_far:.3f} spent so far")
+        for j, item in enumerate(batch):
+            p = next((r for r in results if isinstance(r, dict) and r.get("i") == j), None) if isinstance(results, list) else None
+            if p and "error" not in p:
+                topic_tags = "|".join(p.get("tp", [])).replace("energy and sustainability", "environment and sustainability")
+                mt = item['matter_type']
+                if mt in REGISTRATION_TYPES:
+                    topic_tags = "registrations and terminations"
+                    action_type = "registration"
+                elif mt in STATEMENT_TYPES:
+                    topic_tags = "financial statements"
+                    action_type = "statement"
+                else:
+                    action_type = p.get("a", "")
+                item.update({
+                    "clean_title":    p.get("t", ""),
+                    "topic_tags":     topic_tags,
+                    "action_type_ai": action_type,
+                    "geography":      "|".join(p.get("g", [])),
+                    "summary":        p.get("s", ""),
+                    "tag_status":     "success"
+                })
+            else:
+                # Fallback to single-item tagging
+                tag_item(client, item)
+        time.sleep(DELAY_BETWEEN_ITEMS)
+    return total_input_tokens, total_output_tokens
+
+def write_csv(path, rows):
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=FIELDNAMES, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
 
 def main():
-    cutoff = datetime.today() - timedelta(days=LOOKBACK_DAYS)
-    print(f"Cutoff date: {cutoff.strftime('%Y-%m-%d')} ({LOOKBACK_DAYS} days ago)")
+    ap = argparse.ArgumentParser(description="Update the Cincinnati Council site data from Legistar.")
+    ap.add_argument("--full-sync", action="store_true",
+                    help=f"compare every matter introduced since --since (default {FULL_SYNC_SINCE})")
+    ap.add_argument("--since", default=FULL_SYNC_SINCE, help="start date for --full-sync, YYYY-MM-DD")
+    ap.add_argument("--modified-days", type=int, default=MODIFIED_LOOKBACK_DAYS,
+                    help=f"also pull matters modified in the last N days (default {MODIFIED_LOOKBACK_DAYS})")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="fetch and compare only; write nothing except the sync_*.csv reports")
+    args = ap.parse_args()
+
+    today = datetime.today()
+    cutoff = today - timedelta(days=LOOKBACK_DAYS)
+    mod_cutoff = today - timedelta(days=args.modified_days)
+    print(f"API: {API_BASE}")
+    print(f"Mode: {'FULL SYNC since ' + args.since if args.full_sync else 'normal'}"
+          f"{' (dry run)' if args.dry_run else ''}")
 
     # Load existing CSV
     print(f"\nLoading {EXISTING_CSV}...")
@@ -414,122 +571,120 @@ def main():
     existing_files = {r["file_number"] for r in existing_rows}
     print(f"Existing records: {len(existing_rows)}")
 
-    # Fetch new records from API
-    print(f"\nFetching records from Legistar API since {cutoff.strftime('%Y-%m-%d')}...")
-    new_matters = []
-    skip = 0
-    page = 1
-    while True:
-        print(f"  Page {page}...")
-        try:
-            xml_text = fetch_page(cutoff, skip)
-            page_items = parse_page(xml_text)
-        except Exception as e:
-            print(f"  ERROR: {e}")
-            break
-        if not page_items:
-            break
-        print(f"  -> {len(page_items)} records")
-        new_matters.extend(page_items)
-        if len(page_items) < PAGE_SIZE:
-            break
-        skip += PAGE_SIZE
-        page += 1
-        time.sleep(DELAY_BETWEEN_PAGES)
-
-    # Deduplicate
-    truly_new = [m for m in new_matters if m["matter_id"] not in existing_ids]
-    duplicates = len(new_matters) - len(truly_new)
-    print(f"\nFetched: {len(new_matters)} | Duplicates skipped: {duplicates} | New: {len(truly_new)}")
-
-    if not truly_new:
-        print("No new records to add.")
-        all_rows = existing_rows
+    # Fetch matters from the API
+    fetched = {}          # matter_id -> matter
+    complete = True
+    if args.full_sync:
+        print(f"\nFetching all matters introduced since {args.since}...")
+        items, ok = fetch_matters(f"MatterIntroDate+ge+datetime'{args.since}T00:00:00'", "full sync")
+        complete = complete and ok
+        for m in items:
+            fetched[m["matter_id"]] = m
     else:
-        # Tag new items — skip low-value types, batch the rest
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        
-        # Pre-classify: skip types that don't need AI
-        to_tag = []
-        for item in truly_new:
-            if item['matter_type'] in SKIP_TAG_TYPES:
-                mt = item['matter_type']
-                if mt in REGISTRATION_TYPES:
-                    item.update({"clean_title": item['raw_title'][:80], "topic_tags": "registrations and terminations",
-                                 "action_type_ai": "registration", "geography": "", "summary": "", "tag_status": "success"})
-                elif mt in STATEMENT_TYPES:
-                    item.update({"clean_title": item['raw_title'][:80], "topic_tags": "financial statements",
-                                 "action_type_ai": "statement", "geography": "", "summary": "", "tag_status": "success"})
-                else:
-                    item.update({"clean_title": item['raw_title'][:80], "topic_tags": "elections and governance",
-                                 "action_type_ai": "other", "geography": "", "summary": "", "tag_status": "success"})
-            else:
-                to_tag.append(item)
+        print(f"\nFetching matters introduced since {cutoff.strftime('%Y-%m-%d')}...")
+        items, ok = fetch_matters(f"MatterIntroDate+ge+datetime'{odata_date(cutoff)}'", "introduced")
+        complete = complete and ok
+        for m in items:
+            fetched[m["matter_id"]] = m
+        print(f"Fetching matters modified since {mod_cutoff.strftime('%Y-%m-%d')}...")
+        items, ok = fetch_matters(f"MatterLastModifiedUtc+ge+datetime'{odata_date(mod_cutoff)}'", "modified")
+        complete = complete and ok
+        for m in items:
+            fetched.setdefault(m["matter_id"], m)
+    print(f"Fetched {len(fetched)} distinct matters.")
+    if not fetched:
+        print("Nothing came back from Legistar; leaving the CSV and JSON unchanged.")
+        if not complete:
+            print("Legistar could not be reached. Stopping with an error so the run is flagged.")
+            sys.exit(1)
 
-        skipped = len(truly_new) - len(to_tag)
-        print(f"\nTagging {len(to_tag)} items with Claude (skipping {skipped} low-value types)...")
+    # Split into refresh (already in CSV) and new
+    row_by_id = {r["matter_id"]: r for r in existing_rows}
+    new_matters, refreshed_rows, change_log = [], 0, []
+    field_counts = {}
+    for mid, m in fetched.items():
+        row = row_by_id.get(mid)
+        if row is None:
+            new_matters.append(m)
+            continue
+        ch = refresh_row(dict(row) if args.dry_run else row, m)
+        if ch:
+            refreshed_rows += 1
+            for fld, (o, n) in ch.items():
+                field_counts[fld] = field_counts.get(fld, 0) + 1
+                change_log.append((m["file_number"], mid, fld, o, n))
 
-        # Process in batches
-        total_input_tokens = 0
-        total_output_tokens = 0
-        total_batches = (len(to_tag) + BATCH_SIZE - 1) // BATCH_SIZE
-        for batch_start in range(0, len(to_tag), BATCH_SIZE):
-            batch = to_tag[batch_start:batch_start + BATCH_SIZE]
-            batch_num = batch_start // BATCH_SIZE
-            print(f"  Batch {batch_num + 1}/{total_batches}: {len(batch)} items...", end="", flush=True)
-            results, in_tok, out_tok = tag_batch(client, batch)
-            total_input_tokens += in_tok
-            total_output_tokens += out_tok
-            cost_so_far = (total_input_tokens/1_000_000*HAIKU_INPUT_COST) + (total_output_tokens/1_000_000*HAIKU_OUTPUT_COST)
-            print(f" ${cost_so_far:.3f} spent so far")
-            for j, item in enumerate(batch):
-                p = next((r for r in results if isinstance(r, dict) and r.get("i") == j), None) if isinstance(results, list) else None
-                if p and "error" not in p:
-                    topic_tags = "|".join(p.get("tp", [])).replace("energy and sustainability", "environment and sustainability")
-                    mt = item['matter_type']
-                    if mt in REGISTRATION_TYPES:
-                        topic_tags = "registrations and terminations"
-                        action_type = "registration"
-                    elif mt in STATEMENT_TYPES:
-                        topic_tags = "financial statements"
-                        action_type = "statement"
-                    else:
-                        action_type = p.get("a", "")
-                    item.update({
-                        "clean_title":    p.get("t", ""),
-                        "topic_tags":     topic_tags,
-                        "action_type_ai": action_type,
-                        "geography":      "|".join(p.get("g", [])),
-                        "summary":        p.get("s", ""),
-                        "tag_status":     "success"
-                    })
-                else:
-                    # Fallback to single-item tagging
-                    tag_item(client, item)
-            time.sleep(DELAY_BETWEEN_ITEMS)
+    # A file number already in the CSV under another matter id is still a new matter;
+    # Legistar does reuse file numbers on old records. Report, do not skip.
+    reused = [m for m in new_matters if m["file_number"] and m["file_number"] in existing_files]
+    print(f"\nAlready in CSV, fields changed on Legistar: {refreshed_rows}")
+    for fld in REFRESH_FIELDS:
+        if field_counts.get(fld):
+            print(f"    {fld}: {field_counts[fld]}")
+    print(f"Not in CSV yet (to add): {len(new_matters)}"
+          + (f"  ({len(reused)} share a file number with an existing row)" if reused else ""))
 
-        # Append to CSV (full version stays local)
-        all_rows = existing_rows + truly_new
-        with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=FIELDNAMES, extrasaction="ignore")
-            writer.writeheader()
-            writer.writerows(all_rows)
-        success = sum(1 for m in truly_new if m.get("tag_status") == "success")
-        print(f"\nCSV updated. {success}/{len(truly_new)} new items tagged successfully.")
+    # Rows in the CSV that Legistar did not return (full sync only, and only if every page loaded)
+    missing_on_legistar = []
+    if args.full_sync and complete and fetched:
+        missing_on_legistar = [r for r in existing_rows
+                               if r.get("intro_date", "") >= args.since and r["matter_id"] not in fetched]
+        print(f"In CSV but not returned by Legistar: {len(missing_on_legistar)} (reported, not deleted)")
+        for r in missing_on_legistar[:50]:
+            print(f"    {r.get('file_number') or '(no file number)'}  id {r['matter_id']}  {r.get('intro_date', '')}  "
+                  f"[{r.get('status', '')}]  {r.get('clean_title', '')[:60]}")
+    elif args.full_sync and not complete:
+        print("Full sync did not finish every page; skipping the 'not on Legistar' comparison.")
 
-        # Write tagged-only CSV for GitHub (keeps file size small)
+    # Reports
+    if change_log or new_matters or missing_on_legistar:
+        if change_log:
+            with open("sync_changes.csv", "w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(["file_number", "matter_id", "field", "old", "new"])
+                w.writerows(change_log)
+            print("Wrote sync_changes.csv")
+        if missing_on_legistar:
+            write_csv("sync_not_on_legistar.csv", missing_on_legistar)
+            print("Wrote sync_not_on_legistar.csv")
+
+    if args.dry_run:
+        print("\nDry run: no changes made to the CSV or JSON.")
+        return
+
+    total_input_tokens = total_output_tokens = 0
+    changed = bool(refreshed_rows)
+    if new_matters:
+        if ANTHROPIC_API_KEY in ("", "YOUR_API_KEY_HERE"):
+            print("\nANTHROPIC_API_KEY is not set: the new matters were NOT added. "
+                  "Status refreshes are still saved.")
+            new_matters = []
+        else:
+            total_input_tokens, total_output_tokens = tag_new_items(new_matters)
+            ok_new = [m for m in new_matters if m.get("tag_status") == "success"]
+            print(f"\n{len(ok_new)}/{len(new_matters)} new items tagged successfully.")
+            new_matters = ok_new
+            changed = changed or bool(new_matters)
+
+    if changed or not os.path.exists(OUTPUT_CSV):
+        # Write the tagged-only CSV (keeps the GitHub copy small)
+        all_rows = existing_rows + new_matters
         tagged_rows = [r for r in all_rows if r.get("tag_status") == "success"]
-        with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=FIELDNAMES, extrasaction="ignore")
-            writer.writeheader()
-            writer.writerows(tagged_rows)
-        import os
+        write_csv(OUTPUT_CSV, tagged_rows)
         size_mb = os.path.getsize(OUTPUT_CSV) / 1024 / 1024
-        print(f"Tagged-only CSV: {len(tagged_rows)} rows, {size_mb:.1f} MB")
+        print(f"CSV updated: {len(tagged_rows)} rows ({len(new_matters)} added, "
+              f"{refreshed_rows} refreshed), {size_mb:.1f} MB")
+    else:
+        print("\nNo changes to the CSV.")
 
     # Scrape Legistar links for recent meetings
     print(f"\nFetching recent meeting URLs from API...")
-    event_urls = fetch_recent_event_urls(cutoff)
+    link_cutoff = min(cutoff, mod_cutoff)
+    try:
+        event_urls = fetch_recent_event_urls(link_cutoff)
+    except Exception as e:
+        print(f"  Could not list meetings ({e}); keeping existing links.")
+        event_urls = []
     print(f"Found {len(event_urls)} recent meetings. Scraping for legislation links...")
 
     # Load existing link map from JSON
@@ -552,11 +707,9 @@ def main():
         time.sleep(DELAY_HTML)
 
     # Print tagging cost if any tagging happened
-    try:
+    if total_input_tokens or total_output_tokens:
         actual_cost = (total_input_tokens/1_000_000*HAIKU_INPUT_COST) + (total_output_tokens/1_000_000*HAIKU_OUTPUT_COST)
         print(f"Tagging cost this run: ${actual_cost:.3f} ({total_input_tokens:,} input tokens, {total_output_tokens:,} output tokens)")
-    except:
-        pass
 
     # Load vote data
     vote_lookup = {}
