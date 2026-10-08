@@ -53,6 +53,7 @@ OUTPUT_JSON   = "council_data.json"
 VOTES_FILE    = "votes_api.json"
 TITLE_OVERRIDES_FILE = "title_overrides.json"
 SUMMARY_OVERRIDES_FILE = "summary_overrides.json"
+EXCLUDE_FILE = "exclude_matter_ids.json"   # matter ids to remove and never add (JSON list)
 
 # Cutoff: pull items introduced in the last N days
 LOOKBACK_DAYS = 14
@@ -537,6 +538,13 @@ def tag_new_items(items):
         time.sleep(DELAY_BETWEEN_ITEMS)
     return total_input_tokens, total_output_tokens
 
+def load_excluded():
+    try:
+        with open(EXCLUDE_FILE, encoding="utf-8") as f:
+            return {str(x) for x in json.load(f)}
+    except (FileNotFoundError, json.JSONDecodeError):
+        return set()
+
 def write_csv(path, rows):
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES, extrasaction="ignore")
@@ -567,9 +575,15 @@ def main():
     print(f"\nLoading {EXISTING_CSV}...")
     with open(EXISTING_CSV, newline="", encoding="utf-8") as f:
         existing_rows = list(csv.DictReader(f))
+    excluded = load_excluded()
+    n_before = len(existing_rows)
+    existing_rows = [r for r in existing_rows if r["matter_id"] not in excluded]
+    removed_excluded = n_before - len(existing_rows)
     existing_ids = {r["matter_id"] for r in existing_rows}
     existing_files = {r["file_number"] for r in existing_rows}
     print(f"Existing records: {len(existing_rows)}")
+    if removed_excluded:
+        print(f"Removed {removed_excluded} rows listed in {EXCLUDE_FILE}.")
 
     # Fetch matters from the API
     fetched = {}          # matter_id -> matter
@@ -603,6 +617,8 @@ def main():
     new_matters, refreshed_rows, change_log = [], 0, []
     field_counts = {}
     for mid, m in fetched.items():
+        if mid in excluded:
+            continue
         row = row_by_id.get(mid)
         if row is None:
             new_matters.append(m)
@@ -614,15 +630,18 @@ def main():
                 field_counts[fld] = field_counts.get(fld, 0) + 1
                 change_log.append((m["file_number"], mid, fld, o, n))
 
-    # A file number already in the CSV under another matter id is still a new matter;
-    # Legistar does reuse file numbers on old records. Report, do not skip.
+    # Legistar keeps old duplicate records (status "Historical" or a committee name)
+    # under file numbers the CSV already has. They repeat an item the site already
+    # shows, so they are skipped.
     reused = [m for m in new_matters if m["file_number"] and m["file_number"] in existing_files]
+    reused_ids = {m["matter_id"] for m in reused}
+    new_matters = [m for m in new_matters if m["matter_id"] not in reused_ids]
     print(f"\nAlready in CSV, fields changed on Legistar: {refreshed_rows}")
     for fld in REFRESH_FIELDS:
         if field_counts.get(fld):
             print(f"    {fld}: {field_counts[fld]}")
     print(f"Not in CSV yet (to add): {len(new_matters)}"
-          + (f"  ({len(reused)} share a file number with an existing row)" if reused else ""))
+          + (f"  ({len(reused)} more skipped: file number already in the CSV)" if reused else ""))
 
     # Rows in the CSV that Legistar did not return (full sync only, and only if every page loaded)
     missing_on_legistar = []
@@ -653,7 +672,7 @@ def main():
         return
 
     total_input_tokens = total_output_tokens = 0
-    changed = bool(refreshed_rows)
+    changed = bool(refreshed_rows) or removed_excluded > 0
     if new_matters:
         if ANTHROPIC_API_KEY in ("", "YOUR_API_KEY_HERE"):
             print("\nANTHROPIC_API_KEY is not set: the new matters were NOT added. "
