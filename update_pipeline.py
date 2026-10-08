@@ -417,6 +417,17 @@ def scrape_meeting(url):
 
 # ─── JSON REBUILD ─────────────────────────────────────────────────────────────
 
+LEGISTAR_SITE = "https://cincinnatioh.legistar.com"
+
+def legistar_permalink(matter_id):
+    """Public Legistar link for a matter, built from its matter id. Legistar
+    redirects it to the matter's detail page. Used when the meeting-page scrape
+    has not produced a direct link for the matter."""
+    mid = str(matter_id or "").strip()
+    if not mid.isdigit():
+        return ""
+    return f"{LEGISTAR_SITE}/gateway.aspx?m=l&id=/matter.aspx?key={mid}"
+
 def build_json(csv_rows, legistar_links, vote_lookup=None):
     if vote_lookup is None:
         vote_lookup = {}
@@ -437,7 +448,7 @@ def build_json(csv_rows, legistar_links, vote_lookup=None):
             "f":           fn,
             "mt":          r["matter_type"],
             "id":          r["matter_id"],
-            "legistar_url": legistar_links.get(fn, ""),
+            "legistar_url": legistar_links.get(fn) or legistar_permalink(r.get("matter_id")),
         }
         if fn in vote_lookup:
             v = vote_lookup[fn]
@@ -721,7 +732,7 @@ def main():
         with open(OUTPUT_JSON) as f:
             existing_json = json.load(f)
         for r in existing_json:
-            if not r.get('_meta') and r.get('f') and r.get('legistar_url'):
+            if not r.get('_meta') and r.get('f') and r.get('legistar_url') and 'gateway.aspx' not in r['legistar_url']:
                 link_map[r['f']] = r['legistar_url']
         print(f"Loaded {len(link_map)} existing Legistar links.")
     except:
