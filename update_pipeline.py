@@ -535,6 +535,15 @@ def tag_new_items(items):
             else:
                 # Fallback to single-item tagging
                 tag_item(client, item)
+                if item.get("tag_status") != "success":
+                    # AI tagging failed twice. Keep the matter on the site with its
+                    # raw title and no tags rather than leaving it out.
+                    reason = str(item.get("tag_status", ""))[:150]
+                    print(f"    untagged: {item.get('file_number', '')} ({reason})")
+                    item.update({"clean_title": item["raw_title"][:80], "topic_tags": "",
+                                 "action_type_ai": "other", "geography": "", "summary": "",
+                                 "tag_status": "success"})
+                    item["notes"] = ((item.get("notes") or "") + " [auto-tag failed]").strip()
         time.sleep(DELAY_BETWEEN_ITEMS)
     return total_input_tokens, total_output_tokens
 
