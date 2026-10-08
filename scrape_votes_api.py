@@ -27,7 +27,7 @@ API_BASE = os.environ.get("LEGISTAR_API_BASE", "https://webapi.legistar.com/v1/c
 # were processed before. Votes and minutes are often posted days after the
 # meeting; without this, a meeting read before its votes were posted stayed
 # empty permanently.
-RECHECK_DAYS = 21
+RECHECK_DAYS = 45
 
 # Action names that represent the primary passage vote
 PRIMARY_ACTIONS = {
