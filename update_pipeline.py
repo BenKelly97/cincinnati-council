@@ -551,12 +551,42 @@ def tag_new_items(items):
                     # raw title and no tags rather than leaving it out.
                     reason = str(item.get("tag_status", ""))[:150]
                     print(f"    untagged: {item.get('file_number', '')} ({reason})")
-                    item.update({"clean_title": item["raw_title"][:80], "topic_tags": "",
+                    item.update({"clean_title": item["raw_title"], "topic_tags": "",
                                  "action_type_ai": "other", "geography": "", "summary": "",
                                  "tag_status": "success"})
-                    item["notes"] = ((item.get("notes") or "") + " [auto-tag failed]").strip()
+                    item["notes"] = ((item.get("notes") or "") + " " + UNTAGGED_MARK).strip()
         time.sleep(DELAY_BETWEEN_ITEMS)
     return total_input_tokens, total_output_tokens
+
+UNTAGGED_MARK = "[auto-tag failed]"
+RETAG_LIMIT = 60   # untagged rows retried per run
+
+def retag_untagged(rows):
+    """Retry AI tagging for rows an earlier run left untagged (marked in notes).
+    Rows that tag successfully get their title, tags, geography and summary filled
+    in and the marker removed; the rest keep the marker and are tried next run.
+    Returns (fixed, still_untagged)."""
+    todo = [r for r in rows if UNTAGGED_MARK in (r.get("notes") or "")]
+    if not todo:
+        return 0, 0
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    batch = todo[:RETAG_LIMIT]
+    print(f"\nRetrying AI tagging for {len(batch)} of {len(todo)} untagged rows...")
+    fixed = 0
+    for r in batch:
+        it = dict(r)
+        tag_item(client, it)
+        if it.get("tag_status") == "success" and (it.get("clean_title") or "").strip():
+            for k in ("clean_title", "topic_tags", "action_type_ai", "geography", "summary"):
+                r[k] = it.get(k, "")
+            r["notes"] = (r.get("notes") or "").replace(UNTAGGED_MARK, "").strip()
+            r["tag_status"] = "success"
+            fixed += 1
+            print(f"    retagged: {r.get('file_number', '')}")
+        else:
+            print(f"    still untagged: {r.get('file_number', '')} ({str(it.get('tag_status', ''))[:120]})")
+        time.sleep(DELAY_BETWEEN_ITEMS)
+    return fixed, len(todo) - fixed
 
 def load_excluded():
     try:
@@ -704,6 +734,13 @@ def main():
             print(f"\n{len(ok_new)}/{len(new_matters)} new items tagged successfully.")
             new_matters = ok_new
             changed = changed or bool(new_matters)
+
+    if ANTHROPIC_API_KEY not in ("", "YOUR_API_KEY_HERE"):
+        retagged, still_untagged = retag_untagged(existing_rows + new_matters)
+        if retagged:
+            changed = True
+        if still_untagged:
+            print(f"{still_untagged} row(s) are still untagged; they are retried on the next run.")
 
     if changed or not os.path.exists(OUTPUT_CSV):
         # Write the tagged-only CSV (keeps the GitHub copy small)
