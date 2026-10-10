@@ -246,7 +246,19 @@ JSON array only, no markdown."""
             if raw.startswith("json"): raw = raw[4:]
             raw = raw.strip()
         usage = resp.usage
-        return json.loads(raw), usage.input_tokens, usage.output_tokens
+        if getattr(resp, "stop_reason", "") == "max_tokens":
+            raise ValueError("response cut off at max_tokens")
+        # The model sometimes adds a sentence before the JSON, or returns one object instead of
+        # an array when asked about a single item (that left long-title rows untagged as "no result").
+        starts = [k for k in (raw.find("["), raw.find("{")) if k >= 0]
+        if starts and min(starts) > 0:
+            raw = raw[min(starts):]
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            data = data.get("items") or data.get("results") or [data]
+        if not isinstance(data, list) or not data:
+            raise ValueError("empty or unexpected response: " + raw[:120])
+        return data, usage.input_tokens, usage.output_tokens
     except Exception as e:
         return [{"i": i, "error": str(e)} for i in range(len(items))], 0, 0
 
