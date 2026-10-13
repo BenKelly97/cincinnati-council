@@ -2,6 +2,20 @@
 
 Notable changes to the Cincinnati City Council transparency site, most recent first. Each entry names the files touched and the live GitHub commit.
 
+## 2026-10-13 — Type filter uses Legistar's types, multi-select sponsor filter, pre-2018 matters blocked
+
+**Type filter (`index.html`).** The "All action types" dropdown listed the AI-assigned action categories (`a` field). It now lists Legistar's own matter types (`mt` field, Legistar's MatterTypeName), labeled "All types": the same 24 entries as the Type dropdown on cincinnatioh.legistar.com, Appointment through Termination. Cards still show the AI action type.
+
+**Sponsor filter (`index.html`).** The dropdown listed every distinct value of the requester field, 494 entries, most of them comma-joined combinations of names. It is now a panel with one checkbox per person, grouped as current councilmembers (9), former councilmembers (12), and offices and committees (Mayor, City Manager, Clerk of Council, Committees and other). It has a name search box, an Any selected / All selected switch, an item count next to each name, and a Clear button. A record matches a councilmember when that name appears in its comma-separated requester list. Checked against an independent count from council_data.json: Cramerding 216, Cramerding or Albi 332, Cramerding and Albi 60, all equal.
+
+**Header range (`index.html`).** The header said "2020–2026" regardless of the data. It now shows the first and last year present.
+
+**Pre-2018 matters (`update_pipeline.py`).** Matter 201201557 (Park Board Rules communication, introduced 2012-11-20) appeared on the site and added 2012 to the year filter. Legistar modified the matter on 2026-10-07, and the pipeline's modified-date pull (last 21 days) adds any matter it does not already have, with no check on introduction date. Added `SITE_START` (2018-01-01, same as the full-sync start): matters introduced earlier are skipped when fetched, and any already in the CSV are removed on the next run. Tested offline on the CSV at e4f470e with that matter injected into the modified pull: it was skipped, the existing row was removed, and the rebuilt JSON covers 2018 to 2026 only (13,096 records).
+
+Files: `index.html`, `update_pipeline.py`. Starting commit: [e4f470e](https://github.com/BenKelly97/cincinnati-council/commit/e4f470ecbd5d2642c9d0187af06d6839c9c46cf6). Commits: [25446bb](https://github.com/BenKelly97/cincinnati-council/commit/25446bba2b3a64e16a4f50f1937087dd4a1ce29a) (`update_pipeline.py`), [f0413ad](https://github.com/BenKelly97/cincinnati-council/commit/f0413ad0f3dff606d03b235645afa3e279c3eaf6) (`index.html`).
+
+Not logged here: the 2026-10-08 to 2026-10-10 pipeline changes (retag_untagged, full-length titles, tag_batch parsing). No CHANGELOG entry was written for them at the time.
+
 ## 2026-09-25 — Sponsor filter returned 0 results for members whose Legistar requester field was blank
 
 The Sponsor filter on `alternative.html` reads the `requester` field, which came straight from Legistar's `MatterRequester` with no fallback. That field is frequently null or set to a committee name even when the item's title plainly names the sponsor (e.g. "submitted by Councilmember Albi") — caught because Anna Albi's Sponsor filter returned 0 results despite her having sponsored dozens of items. 3,511 of 12,913 records had a blank requester for this reason.
