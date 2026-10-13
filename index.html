@@ -70,6 +70,24 @@ main{padding:1.5rem 0 3rem}
 .filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:1rem}
 .filters select{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;cursor:pointer;outline:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
 .filters select:focus{border-color:var(--accent)}
+.ms{position:relative}
+.ms summary{list-style:none;cursor:pointer;padding:7px 28px 7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+.ms summary::-webkit-details-marker{display:none}
+.ms[open] summary{border-color:var(--accent)}
+.ms.active summary{border-color:var(--accent);color:var(--accent)}
+.ms-panel{position:absolute;right:0;top:calc(100% + 4px);z-index:50;width:280px;max-width:90vw;background:var(--bg);border:1px solid var(--border2);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.15);padding:8px}
+.ms-panel input[type=text]{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;outline:none;margin-bottom:6px}
+.ms-panel input[type=text]:focus{border-color:var(--accent)}
+.ms-mode{display:flex;gap:12px;font-size:12px;color:var(--text2);padding:2px 2px 6px;border-bottom:1px solid var(--border)}
+.ms-mode label{display:flex;align-items:center;gap:4px;cursor:pointer}
+.ms-list{max-height:300px;overflow-y:auto;padding-top:4px}
+.ms-group{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);padding:8px 2px 2px}
+.ms-opt{display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 2px;cursor:pointer;border-radius:4px}
+.ms-opt:hover{background:var(--bg2)}
+.ms-opt .ms-n{margin-left:auto;font-size:11px;color:var(--text3)}
+.ms-opt.zero{color:var(--text3)}
+.ms-foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);margin-top:6px;padding-top:6px;font-size:12px;color:var(--text3)}
+.ms-foot button{background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer;padding:0}
 
 .toolbar{display:flex;align-items:center;gap:1rem;margin-bottom:1rem;flex-wrap:wrap}
 .result-count{font-size:13px;color:var(--text2)}
@@ -182,11 +200,22 @@ main{padding:1.5rem 0 3rem}
 
     <div class="filters">
       <select id="f-topic" onchange="onFilter()"><option value="">All topics</option></select>
-      <select id="f-action" onchange="onFilter()"><option value="">All action types</option></select>
+      <select id="f-action" onchange="onFilter()"><option value="">All types</option></select>
       <select id="f-geo" onchange="onFilter()"><option value="">All neighborhoods</option></select>
       <select id="f-year" onchange="onFilter()"><option value="">All years</option></select>
       <select id="f-status" onchange="onFilter()"><option value="">All statuses</option></select>
-      <select id="f-sponsor" onchange="onFilter()"><option value="">All sponsors</option></select>
+      <details class="ms" id="f-sponsor">
+        <summary id="sponsor-summary">All sponsors</summary>
+        <div class="ms-panel">
+          <input type="text" id="sponsor-search" placeholder="Find a name&hellip;" oninput="filterSponsorList()" autocomplete="off">
+          <div class="ms-mode">
+            <label><input type="radio" name="sponsor-mode" value="or" checked onchange="onFilter()"> Any selected</label>
+            <label><input type="radio" name="sponsor-mode" value="and" onchange="onFilter()"> All selected</label>
+          </div>
+          <div class="ms-list" id="sponsor-options"></div>
+          <div class="ms-foot"><span id="sponsor-count">None selected</span><button type="button" onclick="clearSponsors()">Clear</button></div>
+        </div>
+      </details>
     </div>
 
     <div class="toolbar">
@@ -223,9 +252,92 @@ function statusClass(s) {
   return 'b-pending';
 }
 
+// Sponsor filter. The rq field holds a comma-separated list of names, or an
+// office or committee. Each record is reduced to a set of keys: one per
+// councilmember named, or one office key.
+const CURRENT_MEMBERS = ['Anna Albi','Jeff Cramerding','Ryan James','Mark Jeffreys','Scotty Johnson',
+  'Jan-Michele Kearney','Evan Nolan','Meeka Owens','Seth Walsh'];
+const FORMER_MEMBERS = ['Steve Goodin','Reggie Harris','Liz Keating','Greg Landsman','David Mann',
+  'Victoria Parks','Jeff Pastor','Chris Seelbach','P.G. Sittenfeld','Christopher Smitherman',
+  'Betsy Sundermann','Wendell Young'];
+const MEMBER_ALIASES = {'jan-michele lemon kearney':'Jan-Michele Kearney'};
+const OFFICE_KEYS = ['Mayor','City Manager','Clerk of Council','Committees and other'];
+const MEMBER_BY_LC = {};
+[...CURRENT_MEMBERS, ...FORMER_MEMBERS].forEach(n => { MEMBER_BY_LC[n.toLowerCase()] = n; });
+Object.entries(MEMBER_ALIASES).forEach(([k, v]) => { MEMBER_BY_LC[k] = v; });
+
+function sponsorKeys(r) {
+  if (r._sp) return r._sp;
+  const keys = new Set();
+  const rq = (r.rq || '').trim();
+  if (rq) {
+    rq.split(',').forEach(tok => {
+      const m = MEMBER_BY_LC[tok.trim().toLowerCase()];
+      if (m) keys.add(m);
+    });
+    if (!keys.size) {
+      if (/\bmayor\b/i.test(rq)) keys.add('Mayor');
+      else if (/city manager/i.test(rq)) keys.add('City Manager');
+      else if (/clerk of council/i.test(rq)) keys.add('Clerk of Council');
+      else keys.add('Committees and other');
+    }
+  }
+  r._sp = keys;
+  return keys;
+}
+
+function populateSponsors() {
+  const counts = {};
+  ALL.forEach(r => sponsorKeys(r).forEach(k => { counts[k] = (counts[k] || 0) + 1; }));
+  const esc = v => String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  const group = (label, names) => `<div class="ms-group">${label}</div>` + names.map(n =>
+    `<label class="ms-opt${counts[n] ? '' : ' zero'}" data-name="${esc(n.toLowerCase())}">` +
+    `<input type="checkbox" value="${esc(n)}" onchange="onFilter()"> ${esc(n)}` +
+    `<span class="ms-n">${(counts[n] || 0).toLocaleString()}</span></label>`).join('');
+  document.getElementById('sponsor-options').innerHTML =
+    group('Current councilmembers', CURRENT_MEMBERS) +
+    group('Former councilmembers', FORMER_MEMBERS) +
+    group('Offices and committees', OFFICE_KEYS);
+}
+
+function filterSponsorList() {
+  const q = document.getElementById('sponsor-search').value.trim().toLowerCase();
+  document.querySelectorAll('#sponsor-options .ms-opt').forEach(el => {
+    el.style.display = !q || el.dataset.name.includes(q) ? '' : 'none';
+  });
+  document.querySelectorAll('#sponsor-options .ms-group').forEach(g => {
+    let el = g.nextElementSibling, any = false;
+    while (el && !el.classList.contains('ms-group')) { if (el.style.display !== 'none') any = true; el = el.nextElementSibling; }
+    g.style.display = any ? '' : 'none';
+  });
+}
+
+function selectedSponsors() {
+  return [...document.querySelectorAll('#sponsor-options input:checked')].map(el => el.value);
+}
+
+function updateSponsorSummary(sel, mode) {
+  const sum = document.getElementById('sponsor-summary');
+  const box = document.getElementById('f-sponsor');
+  const cnt = document.getElementById('sponsor-count');
+  if (!sel.length) { sum.textContent = 'All sponsors'; cnt.textContent = 'None selected'; box.classList.remove('active'); return; }
+  box.classList.add('active');
+  sum.textContent = sel.length <= 2 ? sel.join(mode === 'and' ? ' + ' : ' or ') : `${sel.length} sponsors (${mode === 'and' ? 'all' : 'any'})`;
+  cnt.textContent = `${sel.length} selected`;
+}
+
+function clearSponsors() {
+  document.querySelectorAll('#sponsor-options input:checked').forEach(el => { el.checked = false; });
+  document.querySelector('input[name="sponsor-mode"][value="or"]').checked = true;
+  document.getElementById('sponsor-search').value = '';
+  filterSponsorList();
+  onFilter();
+}
+
 function populateFilters() {
   const topics = [...new Set(ALL.flatMap(r => r.tp ? r.tp.split('|') : []))].sort();
-  const actions = [...new Set(ALL.map(r => r.a).filter(Boolean))].sort();
+  // Type list matches Legistar's own Type list (the MatterTypeName field).
+  const actions = [...new Set(ALL.map(r => r.mt).filter(Boolean))].sort();
   const geos = [...new Set(ALL.flatMap(r => r.g ? r.g.split('|') : []))].filter(g => g && g !== 'citywide').sort();
   geos.unshift('citywide');
   const years = [...new Set(ALL.map(r => r.y).filter(Boolean))].sort().reverse();
@@ -240,8 +352,7 @@ function populateFilters() {
   add('f-geo', geos);
   add('f-year', years);
   add('f-status', statuses);
-  const sponsors = [...new Set(ALL.map(r => r.rq).filter(Boolean))].sort();
-  add('f-sponsor', sponsors);
+  populateSponsors();
 }
 
 function populateStats() {
@@ -253,7 +364,9 @@ function populateStats() {
   document.getElementById('s-years').textContent = years.length;
   document.getElementById('s-topics').textContent = topics.length;
   document.getElementById('stats-bar').style.display = 'grid';
-  document.getElementById('header-meta').textContent = ALL.length.toLocaleString() + ' items · 2020–2026';
+  const ys = years.slice().sort();
+  document.getElementById('header-meta').textContent = ALL.length.toLocaleString() + ' items · ' +
+    (ys.length ? (ys[0] === ys[ys.length - 1] ? ys[0] : ys[0] + '–' + ys[ys.length - 1]) : '');
 }
 
 function getFilters() {
@@ -264,12 +377,13 @@ function getFilters() {
     geo: document.getElementById('f-geo').value,
     year: document.getElementById('f-year').value,
     status: document.getElementById('f-status').value,
-    sponsor: document.getElementById('f-sponsor').value,
+    sponsor: selectedSponsors(),
+    sponsorMode: document.querySelector('input[name="sponsor-mode"]:checked').value,
   };
 }
 
 function hasActiveFilters(f) {
-  return f.q || f.topic || f.action || f.geo || f.year || f.status || f.sponsor;
+  return f.q || f.topic || f.action || f.geo || f.year || f.status || f.sponsor.length;
 }
 
 function applyFilters() {
@@ -280,13 +394,17 @@ function applyFilters() {
       if (!hay.includes(f.q)) return false;
     }
     if (f.topic && !(r.tp || '').split('|').includes(f.topic)) return false;
-    if (f.action && r.a !== f.action) return false;
+    if (f.action && r.mt !== f.action) return false;
     if (f.geo && !(r.g || '').split('|').includes(f.geo)) return false;
     if (f.year && r.y !== f.year) return false;
     if (f.status && r.st !== f.status) return false;
-    if (f.sponsor && r.rq !== f.sponsor) return false;
+    if (f.sponsor.length) {
+      const keys = sponsorKeys(r);
+      if (f.sponsorMode === 'and' ? !f.sponsor.every(s => keys.has(s)) : !f.sponsor.some(s => keys.has(s))) return false;
+    }
     return true;
   });
+  updateSponsorSummary(f.sponsor, f.sponsorMode);
   document.getElementById('clear-btn').style.display = hasActiveFilters(f) ? 'inline' : 'none';
 }
 
@@ -302,7 +420,11 @@ function onSort() { applySort(); render(); }
 
 function clearFilters() {
   document.getElementById('search').value = '';
-  ['f-topic','f-action','f-geo','f-year','f-status','f-sponsor'].forEach(id => document.getElementById(id).value = '');
+  ['f-topic','f-action','f-geo','f-year','f-status'].forEach(id => document.getElementById(id).value = '');
+  document.querySelectorAll('#sponsor-options input:checked').forEach(el => { el.checked = false; });
+  document.querySelector('input[name="sponsor-mode"][value="or"]').checked = true;
+  document.getElementById('sponsor-search').value = '';
+  filterSponsorList();
   onFilter();
 }
 
@@ -462,6 +584,15 @@ async function loadData() {
     document.getElementById('header-meta').textContent = 'Data not loaded';
   }
 }
+
+// Close the sponsor panel on an outside click or Escape.
+document.addEventListener('click', e => {
+  const dd = document.getElementById('f-sponsor');
+  if (dd.open && !dd.contains(e.target)) dd.removeAttribute('open');
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('f-sponsor').removeAttribute('open');
+});
 
 loadData();
 </script>
