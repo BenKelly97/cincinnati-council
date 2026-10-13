@@ -2,6 +2,18 @@
 
 Notable changes to the Cincinnati City Council transparency site, most recent first. Each entry names the files touched and the live GitHub commit.
 
+## 2026-10-13 — Status filter groups duplicate Legistar statuses
+
+The "All statuses" dropdown on `index.html` listed 37 raw Legistar status values, several of them the same outcome under two labels (committee recommendation "Pass" and council action "Passed", "File" and "Filed", "Adopt" and "Adopted") and seven of them committee names that Legistar stores in the status field on older matters. Added `statusGroup()`, which maps each raw status to one of 18 groups:
+
+- Adopted (Adopt, Adopted); Approved & Filed (Approve & File, Approved & Filed); Confirmed (Confirm, Confirmed); Failed (Failed, Failed of Adoption); Filed (File, Filed, Filed & Advised); Held (Held, Hold, Held one week pursuant to rule of Council); Indefinitely Postponed (Indefinitely Postpone, Indefinitely Postponed); Passed (Pass, Passed); Passed Emergency (Pass Emergency, Passed Emergency); Sunset (Filed/Sunset, Sunset).
+- Referred to Committee: "Referred to Committee" and every committee name in the status field (BUDGET AND FINANCE COMMITTEE, MAJOR PROJECTS & SMART GOVERNMENT, and five others; 190 records).
+- Unchanged: Agenda Ready, City Manager For Report, Disapproved & Filed, First Reading, Second Reading, Historical, Withdrawn. Any status not in the map passes through as is.
+
+The filter and the card badge use the group. The expanded card shows the raw value, relabeled "Legistar status". The "Passed" stat now counts the Passed, Passed Emergency, Adopted and Confirmed groups, so it includes Pass/Adopt/Confirm records it previously missed: 5,531 before, 5,739 after. Data files are unchanged.
+
+Files: `index.html`. Starting commit: [22968ae](https://github.com/BenKelly97/cincinnati-council/commit/22968ae90fc497d2d277167088105caf1720fd53). Commit: [3c758a6](https://github.com/BenKelly97/cincinnati-council/commit/3c758a6f8d75f0bb53fbb035f3de26e6c03f4701).
+
 ## 2026-10-13 — Type filter uses Legistar's types, multi-select sponsor filter, pre-2018 matters blocked
 
 **Type filter (`index.html`).** The "All action types" dropdown listed the AI-assigned action categories (`a` field). It now lists Legistar's own matter types (`mt` field, Legistar's MatterTypeName), labeled "All types": the same 24 entries as the Type dropdown on cincinnatioh.legistar.com, Appointment through Termination. Cards still show the AI action type.
