@@ -61,6 +61,11 @@ LOOKBACK_DAYS = 14
 MODIFIED_LOOKBACK_DAYS = 21
 # Default start for --full-sync
 FULL_SYNC_SINCE = "2018-01-01"
+# Earliest introduction date the site covers. Matters introduced before this
+# are never added, and any already in the CSV are removed. The modified-date
+# pull returns old matters whenever Legistar touches them (e.g. 201201557,
+# introduced 2012, modified 2026-10-07), so this check is needed there.
+SITE_START = FULL_SYNC_SINCE
 
 API_BASE = os.environ.get("LEGISTAR_API_BASE", "https://webapi.legistar.com/v1/cincinnatioh").rstrip("/")
 
@@ -600,6 +605,11 @@ def retag_untagged(rows):
         time.sleep(DELAY_BETWEEN_ITEMS)
     return fixed, len(todo) - fixed
 
+def before_site_start(intro_date):
+    """True if intro_date (YYYY-MM-DD...) is earlier than SITE_START. A blank date is kept."""
+    d = (intro_date or "").strip()[:10]
+    return bool(d) and d < SITE_START
+
 def load_excluded():
     try:
         with open(EXCLUDE_FILE, encoding="utf-8") as f:
@@ -641,11 +651,16 @@ def main():
     n_before = len(existing_rows)
     existing_rows = [r for r in existing_rows if r["matter_id"] not in excluded]
     removed_excluded = n_before - len(existing_rows)
+    n_before = len(existing_rows)
+    existing_rows = [r for r in existing_rows if not before_site_start(r.get("intro_date", ""))]
+    removed_old = n_before - len(existing_rows)
     existing_ids = {r["matter_id"] for r in existing_rows}
     existing_files = {r["file_number"] for r in existing_rows}
     print(f"Existing records: {len(existing_rows)}")
     if removed_excluded:
         print(f"Removed {removed_excluded} rows listed in {EXCLUDE_FILE}.")
+    if removed_old:
+        print(f"Removed {removed_old} rows introduced before {SITE_START}.")
 
     # Fetch matters from the API
     fetched = {}          # matter_id -> matter
@@ -678,8 +693,12 @@ def main():
     row_by_id = {r["matter_id"]: r for r in existing_rows}
     new_matters, refreshed_rows, change_log = [], 0, []
     field_counts = {}
+    skipped_old = []
     for mid, m in fetched.items():
         if mid in excluded:
+            continue
+        if before_site_start(m.get("intro_date", "")):
+            skipped_old.append(m)
             continue
         row = row_by_id.get(mid)
         if row is None:
@@ -702,6 +721,9 @@ def main():
     for fld in REFRESH_FIELDS:
         if field_counts.get(fld):
             print(f"    {fld}: {field_counts[fld]}")
+    if skipped_old:
+        print(f"Skipped {len(skipped_old)} matter(s) introduced before {SITE_START}: "
+              + ", ".join(f"{m.get('file_number') or m['matter_id']} ({m.get('intro_date', '')})" for m in skipped_old[:20]))
     print(f"Not in CSV yet (to add): {len(new_matters)}"
           + (f"  ({len(reused)} more skipped: file number already in the CSV)" if reused else ""))
 
@@ -734,7 +756,7 @@ def main():
         return
 
     total_input_tokens = total_output_tokens = 0
-    changed = bool(refreshed_rows) or removed_excluded > 0
+    changed = bool(refreshed_rows) or removed_excluded > 0 or removed_old > 0
     if new_matters:
         if ANTHROPIC_API_KEY in ("", "YOUR_API_KEY_HERE"):
             print("\nANTHROPIC_API_KEY is not set: the new matters were NOT added. "
