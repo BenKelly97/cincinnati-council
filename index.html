@@ -243,6 +243,37 @@ let ALL = [];
 let filtered = [];
 let page = 0;
 
+// Status filter groups. Legistar records the same outcome under several
+// labels (committee recommendation "Pass" vs. council action "Passed", etc.)
+// and stores a committee name as the status on some older matters. The
+// filter and the card badge use the group; the expanded card shows the raw
+// Legistar status. Statuses not listed here pass through unchanged.
+const STATUS_GROUPS = {
+  'adopt':'Adopted', 'adopted':'Adopted',
+  'approve & file':'Approved & Filed', 'approved & filed':'Approved & Filed',
+  'approve, file & advise':'Approved & Filed', 'approved, filed & advised':'Approved & Filed',
+  'confirm':'Confirmed', 'confirmed':'Confirmed',
+  'disapprove & file':'Disapproved & Filed', 'disapproved & filed':'Disapproved & Filed',
+  'failed':'Failed', 'failed of adoption':'Failed',
+  'file':'Filed', 'filed':'Filed', 'file & advise':'Filed', 'filed & advised':'Filed',
+  'filed/sunset':'Sunset', 'sunset':'Sunset',
+  'held':'Held', 'hold':'Held', 'held one week pursuant to rule of council':'Held',
+  'hold one week pursuant to rule of council':'Held', 'held on council calendar':'Held',
+  'indefinitely postpone':'Indefinitely Postponed', 'indefinitely postponed':'Indefinitely Postponed',
+  'pass':'Passed', 'passed':'Passed',
+  'pass emergency':'Passed Emergency', 'passed emergency':'Passed Emergency',
+  'referred to committee':'Referred to Committee', 'returned to committee':'Referred to Committee',
+};
+function statusGroup(st) {
+  const s = (st || '').trim();
+  if (!s) return '';
+  const g = STATUS_GROUPS[s.toLowerCase()];
+  if (g) return g;
+  // A committee name in the status field (stored in capitals by Legistar).
+  if (/committee|subcommittee/i.test(s) || (s === s.toUpperCase() && /[A-Z]{3}/.test(s))) return 'Referred to Committee';
+  return s;
+}
+
 function statusClass(s) {
   if (!s) return 'b-neutral';
   const l = s.toLowerCase();
@@ -341,7 +372,7 @@ function populateFilters() {
   const geos = [...new Set(ALL.flatMap(r => r.g ? r.g.split('|') : []))].filter(g => g && g !== 'citywide').sort();
   geos.unshift('citywide');
   const years = [...new Set(ALL.map(r => r.y).filter(Boolean))].sort().reverse();
-  const statuses = [...new Set(ALL.map(r => r.st).filter(Boolean))].sort();
+  const statuses = [...new Set(ALL.map(r => statusGroup(r.st)).filter(Boolean))].sort();
 
   const add = (id, vals) => {
     const sel = document.getElementById(id);
@@ -356,7 +387,7 @@ function populateFilters() {
 }
 
 function populateStats() {
-  const passed = ALL.filter(r => { const l = (r.st || '').toLowerCase(); return l.includes('pass') || l === 'adopted' || l === 'confirmed'; }).length;
+  const passed = ALL.filter(r => ['Passed', 'Passed Emergency', 'Adopted', 'Confirmed'].includes(statusGroup(r.st))).length;
   const years = [...new Set(ALL.map(r => r.y).filter(Boolean))];
   const topics = [...new Set(ALL.flatMap(r => r.tp ? r.tp.split('|') : []))];
   document.getElementById('s-total').textContent = ALL.length.toLocaleString();
@@ -397,7 +428,7 @@ function applyFilters() {
     if (f.action && r.mt !== f.action) return false;
     if (f.geo && !(r.g || '').split('|').includes(f.geo)) return false;
     if (f.year && r.y !== f.year) return false;
-    if (f.status && r.st !== f.status) return false;
+    if (f.status && statusGroup(r.st) !== f.status) return false;
     if (f.sponsor.length) {
       const keys = sponsorKeys(r);
       if (f.sponsorMode === 'and' ? !f.sponsor.every(s => keys.has(s)) : !f.sponsor.some(s => keys.has(s))) return false;
@@ -473,7 +504,7 @@ function render() {
     const fields = [
       {label:'File number', val: r.f || '—'},
       {label:'Matter type', val: r.mt || '—'},
-      {label:'Status', val: r.st || '—'},
+      {label:'Legistar status', val: r.st || '—'},
       {label:'Submitted by', val: r.rq || '—'},
       {label:'Introduced', val: r.d || '—'},
       {label:'Action type', val: r.a || '—'},
@@ -489,7 +520,7 @@ function render() {
         ${topics}
         <span class="badge b-action">${r.a || ''}</span>
         ${geos}
-        <span class="badge ${statusClass(r.st)}">${r.st || ''}</span>
+        <span class="badge ${statusClass(statusGroup(r.st))}">${statusGroup(r.st)}</span>
         ${req}
       </div>
       <div class="card-expand">
