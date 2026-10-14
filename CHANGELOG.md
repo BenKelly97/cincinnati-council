@@ -2,6 +2,12 @@
 
 Notable changes to the Cincinnati City Council transparency site, most recent first. Each entry names the files touched and the live GitHub commit.
 
+## 2026-10-14 — Link to the roll call page from the main page
+
+Added a "Roll Call Votes →" link to `alternative.html` in the `index.html` header, next to "Member Records →". Both links now sit in their own `header-nav` element. Before, the Member Records link was inside the header meta text, which is hidden below 600px wide, so phones had no link to either page. Both links now show at every width. Below 600px the "/ Legislative Record" subtitle is hidden to keep the header to two lines.
+
+Files: `index.html`. Starting commit: [e68d6bd](https://github.com/BenKelly97/cincinnati-council/commit/e68d6bd519ae63baf9af5f0ede81a5ec7ccef2e4). Commit: [f8824a8](https://github.com/BenKelly97/cincinnati-council/commit/f8824a8c45a209d0676ee251b2d0c4b506e32bae).
+
 ## 2026-10-13 — Removed the stat strip from the main page
 
 Removed the four boxes above the search bar on `index.html` (Total items, Passed, Years covered, Topic categories): the HTML, their CSS, and `populateStats()`. The search bar is now the first element under the header. The header line still shows the item count and year range (now set by `populateHeader()`). No other page has the strip.
