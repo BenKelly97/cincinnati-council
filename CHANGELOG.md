@@ -2,6 +2,32 @@
 
 Notable changes to the Cincinnati City Council transparency site, most recent first. Each entry names the files touched and the live GitHub commit.
 
+## 2026-10-14 — Data cleanup, daily updates, filter and display fixes
+
+**Votes on shared file numbers (`update_pipeline.py`, `scrape_votes_api.py`).** Votes are keyed by file number, so when two records share a file number both received the same votes. File 201901809 is on matter 2226 (2020 motion) and matter 46856 (2019 ordinance, status "Historical"); Legistar's history shows the 2020-09-15 vote belongs to 2226, but 46856 also displayed it. `build_json()` now attaches a vote to one record per file number: the record with the vote's Legistar matter id when present, otherwise the record introduced on or before the meeting date whose status is not "Historical". `scrape_votes_api.py` now stores `matter_id` (Legistar EventItemMatterId) on each new vote record; older records match by the date rule. Records sharing a file number also no longer share the scraped Legistar link; each uses its own matter link. Offline rebuild of the e68d6bd data: 46856 lost the 2020 vote; no other record's votes changed.
+
+**Malformed file numbers (no change to values).** Nine records have a blank or non-standard file number ("", "20", "0023-2021", "20230002", "20901542", "2014900102"). Checked each against the Legistar API by matter id: Legistar stores these exact values, so the site keeps them. Vote matching and links no longer depend on them.
+
+**Neighborhoods (`update_pipeline.py`).** The published geography values now follow City Planning's 2020 Statistical Neighborhood Approximations list (51 neighborhoods) plus "citywide". "Mount X" becomes "Mt. X", "Fairview" becomes "CUF", "Roll Hill" becomes "Villages at Roll Hill", "Winton Place" becomes "Spring Grove Village". Values not on the list are dropped from the published record: other municipalities (Amberley, Delhi, Montgomery, Norwood, Silverton), umbrella areas (Price Hill, Uptown, Western Hills), and Losantiville, Mohawk and "Werkgeek" (one record each). The filter goes from 63 values to 50. 217 records changed; 11 now have no neighborhood. The CSV keeps the original tags.
+
+**Topics (`update_pipeline.py`).** Six rare tags are merged: energy and "energy and sustainability" into "environment and sustainability"; "public health" into health; "finance policy" into budget; history into "arts and culture"; sports into "parks and recreation". 28 topics become 22; 8 records changed. The CSV keeps the original tags.
+
+**Sponsor filter committees (`index.html`).** The sponsor filter split the requester field on commas, which broke committee names such as "Budget, Finance & Governance Committee", and lumped every non-member into "Committees and other". The panel now has an Offices group (Mayor, City Manager, Clerk of Council) and a "Committees and other bodies" group listing each committee by name (19 entries). Requesters such as "City Manager, Wendell Young" now count for both.
+
+**Daily runs (`.github/workflows/weekly_update.yml`).** Schedule changed from Monday, Wednesday and Friday at 21:00 UTC to daily at 11:37 UTC (7:37 AM EDT, 6:37 AM EST). The old 21:00 UTC runs started as late as 02:16 UTC because GitHub delays scheduled runs at busy times; the new minute avoids the top of the hour. Commit message changed from "Weekly data update" to "Data update ... UTC".
+
+**Runner and actions (`.github/workflows/weekly_update.yml`).** `runs-on` pinned to `ubuntu-24.04` (ubuntu-latest moves to Ubuntu 26 from 2026-10-19). `actions/checkout` v4 to v5 and `actions/setup-python` v5 to v6, which run on Node 24.
+
+**Update time (`index.html`, `update_pipeline.py`).** The header showed the UTC time with no label ("Updated 2026-10-13 20:17"). The page now shows Eastern time ("Updated Oct 14, 2026, 3:43 PM ET"). The pipeline writes `last_updated` in UTC explicitly; the value format is unchanged.
+
+**Main page (`index.html`).** Search now covers file numbers. The card badge shows Legistar's matter type, matching the Type filter, instead of the AI action type (still shown in the expanded card). The count reads "1 result" instead of "1 results".
+
+**Member page (`members.html`).** Member cards show full names ("Anna Albi") instead of surnames.
+
+Files: `update_pipeline.py`, `scrape_votes_api.py`, `.github/workflows/weekly_update.yml`, `index.html`, `members.html`. Starting commit: [400fe3d](https://github.com/BenKelly97/cincinnati-council/commit/400fe3dcc5beea9b4fa9cb798731e75f21b1c231). Commits: [c3275ef](https://github.com/BenKelly97/cincinnati-council/commit/c3275efc4ca1c4ecb6b06d091222d3beffc9fc7a) (`update_pipeline.py`), [723c021](https://github.com/BenKelly97/cincinnati-council/commit/723c021ce8a0a5f269307d682d436259630dbace) (`scrape_votes_api.py`), [1f2e6f3](https://github.com/BenKelly97/cincinnati-council/commit/1f2e6f3327e7563778746879e18b6d388c16b0ed) (`weekly_update.yml`), [b472f6b](https://github.com/BenKelly97/cincinnati-council/commit/b472f6bf4d473854600fb4601aa3b207afe3b2bf) (`index.html`), [5c67b83](https://github.com/BenKelly97/cincinnati-council/commit/5c67b83c3483c38b07e931693807066dcc458981) (`members.html`). Data rebuilt by run #76 ([24f5945](https://github.com/BenKelly97/cincinnati-council/commit/24f5945)): 13,096 records, 50 neighborhood values, 22 topics; matter 46856 no longer carries the 2020 vote; 87 vote records re-read in the 45-day window now carry `matter_id`.
+
+Tarbell: field names in council_data.json and votes_api.json are unchanged. Values of `g` and `tp` changed as above, one record lost its votes, and votes_api.json records gain a `matter_id` field.
+
 ## 2026-10-14 — Member page: year range order and data note
 
 **Year range (`members.html`).** The heading read "Voting Record 2026–2020". The code took the first and last dates in file order as the start and end, and the file is sorted newest first. It now builds a sorted list of years and reads the range earliest first: "Voting Record 2020–2026". A year counts only if at least 5% of its records carry a roll call. Without that rule the range would start at 2019, because of one 2019 record (file 201901809) that shares its file number with a 2020 matter and picks up that matter's votes. 2019 has 1 such record out of 393; 2020 has 346 out of 1,532.
