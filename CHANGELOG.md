@@ -2,6 +2,14 @@
 
 Notable changes to the Cincinnati City Council transparency site, most recent first. Each entry names the files touched and the live GitHub commit.
 
+## 2026-10-14 — Member page: year range order and data note
+
+**Year range (`members.html`).** The heading read "Voting Record 2026–2020". The code took the first and last dates in file order as the start and end, and the file is sorted newest first. It now builds a sorted list of years and reads the range earliest first: "Voting Record 2020–2026". A year counts only if at least 5% of its records carry a roll call. Without that rule the range would start at 2019, because of one 2019 record (file 201901809) that shares its file number with a 2020 matter and picks up that matter's votes. 2019 has 1 such record out of 393; 2020 has 346 out of 1,532.
+
+**Note text (`members.html`).** "Data is fairly complete from 2020 onward. Records from before 2020 may be incomplete." is replaced with "Roll call votes are available for matters introduced from June 2020 onward. Earlier matters have no recorded votes on this site." The month and year are computed from the earliest voted record in the range (2020-06-19).
+
+Files: `members.html`. Starting commit: [f90fb0c](https://github.com/BenKelly97/cincinnati-council/commit/f90fb0c2b87dd01d3e9de3b08400759308fa05ec). Commit: [14c324d](https://github.com/BenKelly97/cincinnati-council/commit/14c324d5d88b070fb48d523633d0e26f525cbf80).
+
 ## 2026-10-14 — Roll call page: member lists split current/former; Voted-by filter fixed
 
 **Split (`alternative.html`).** The Sponsor checkbox panel and the Voted-by dropdown listed all 21 councilmembers in one alphabetical list. Both are now split into "Current members" (Albi, Cramerding, James, Jeffreys, Johnson, Kearney, Nolan, Owens, Walsh) and "Former members" (the other 12). The Sponsor panel uses group headings; the Voted-by dropdown uses option groups. A new `CURRENT_MEMBERS` list sets the split; every other name in `MEMBER_CANONICAL` is treated as former.
