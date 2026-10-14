@@ -222,6 +222,9 @@ def main():
 
             all_votes[fn] = {
                 "file_number":   fn,
+                # Legistar matter id of the voted item. Used to attach the vote
+                # to the right record when two records share a file number.
+                "matter_id":     str(best_item.get("EventItemMatterId") or "") if best_item else "",
                 "meeting_date":  date,
                 "action_used":   action_used,
                 "yes_votes":     yes_votes,
