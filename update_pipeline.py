@@ -40,7 +40,7 @@ import argparse, csv, re, sys, time, json, requests
 import xml.etree.ElementTree as ET
 import anthropic
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
@@ -445,18 +445,112 @@ def legistar_permalink(matter_id):
         return ""
     return f"{LEGISTAR_SITE}/gateway.aspx?m=l&id=/matter.aspx?key={mid}"
 
+# Neighborhood names follow the City Planning Department's 2020 Statistical
+# Neighborhood Approximations list (51 neighborhoods), plus "citywide".
+# GEO_ALIASES maps other spellings to those names. Values not on the list
+# after mapping (other municipalities, umbrella areas, unreadable values) are
+# dropped from the published record; the CSV keeps the original tag.
+CITY_NEIGHBORHOODS = {
+    "Avondale", "Bond Hill", "California", "Camp Washington", "Carthage", "Clifton",
+    "College Hill", "Columbia Tusculum", "Corryville", "CUF", "Downtown", "East End",
+    "East Price Hill", "East Walnut Hills", "East Westwood", "English Woods", "Evanston",
+    "Hartwell", "Hyde Park", "Kennedy Heights", "Linwood", "Lower Price Hill",
+    "Madisonville", "Millvale", "Mt. Adams", "Mt. Airy", "Mt. Auburn", "Mt. Lookout",
+    "Mt. Washington", "North Avondale", "North Fairmount", "Northside", "Oakley",
+    "Over-the-Rhine", "Paddock Hills", "Pendleton", "Pleasant Ridge", "Queensgate",
+    "Riverside", "Roselawn", "Sayler Park", "Sedamsville", "South Cumminsville",
+    "South Fairmount", "Spring Grove Village", "Villages at Roll Hill", "Walnut Hills",
+    "West End", "West Price Hill", "Westwood", "Winton Hills",
+}
+GEO_ALIASES = {
+    "Mount Adams": "Mt. Adams", "Mount Airy": "Mt. Airy", "Mount Auburn": "Mt. Auburn",
+    "Mount Lookout": "Mt. Lookout", "Mount Washington": "Mt. Washington",
+    "Fairview": "CUF", "Clifton Heights": "CUF", "University Heights": "CUF",
+    "Roll Hill": "Villages at Roll Hill", "Winton Place": "Spring Grove Village",
+    "OTR": "Over-the-Rhine", "Over the Rhine": "Over-the-Rhine",
+}
+
+def normalize_geography(value):
+    out = []
+    for g in (value or "").split("|"):
+        g = g.strip()
+        if not g:
+            continue
+        if g.lower() == "citywide":
+            g = "citywide"
+        else:
+            g = GEO_ALIASES.get(g, g)
+            if g not in CITY_NEIGHBORHOODS:
+                continue
+        if g not in out:
+            out.append(g)
+    return "|".join(out)
+
+# Topic tags merged into the main categories. The CSV keeps the original tag.
+TOPIC_ALIASES = {
+    "energy": "environment and sustainability",
+    "energy and sustainability": "environment and sustainability",
+    "public health": "health",
+    "finance policy": "budget",
+    "history": "arts and culture",
+    "sports": "parks and recreation",
+}
+
+def normalize_topics(value):
+    out = []
+    for t in (value or "").split("|"):
+        t = TOPIC_ALIASES.get(t.strip(), t.strip())
+        if t and t not in out:
+            out.append(t)
+    return "|".join(out)
+
+def valid_file_number(fn):
+    return len(fn or "") == 9 and fn.isdigit()
+
+def vote_target_rows(rows, vote):
+    """Pick the CSV row(s) a vote record belongs to when several rows share a
+    file number. Votes scraped after 2026-10-14 carry the Legistar matter id
+    and are matched on it. Older records are matched to the row introduced on
+    or before the meeting date, preferring a row whose status is not
+    "Historical" (Legistar's label for superseded duplicate records)."""
+    mid = str(vote.get("matter_id") or "")
+    if mid:
+        return [r for r in rows if r.get("matter_id") == mid]
+    meeting = vote.get("meeting_date", "")
+    cands = [r for r in rows if (r.get("intro_date") or "")[:10] <= meeting] or list(rows)
+    current = [r for r in cands if (r.get("status") or "") != "Historical"] or cands
+    return [max(current, key=lambda r: (r.get("intro_date") or ""))]
+
 def build_json(csv_rows, legistar_links, vote_lookup=None):
     if vote_lookup is None:
         vote_lookup = {}
+    by_fn = {}
+    for r in csv_rows:
+        by_fn.setdefault(r["file_number"], []).append(r)
+    # matter ids that receive each file number's votes
+    vote_owner = {}
+    for fn, v in vote_lookup.items():
+        rows = by_fn.get(fn, [])
+        # Votes are keyed by Legistar's file number as Legistar stores it, which
+        # is sometimes not 9 digits ("20", "0023-2021"); only blank is skipped.
+        if not fn or not rows:
+            continue
+        targets = rows if len(rows) == 1 else vote_target_rows(rows, v)
+        for r in targets:
+            vote_owner[r["matter_id"]] = fn
     out = []
     for r in csv_rows:
         rq = normalize_requester(r.get('requester',''), r.get('intro_date',''))
         fn = r["file_number"]
+        # A scraped link is keyed by file number, so it is used only when the
+        # file number is valid and belongs to this one row.
+        unique_fn = valid_file_number(fn) and len(by_fn.get(fn, [])) == 1
+        link = (legistar_links.get(fn) if unique_fn else None) or legistar_permalink(r.get("matter_id"))
         rec = {
             "t":           r["clean_title"],
-            "tp":          r["topic_tags"],
+            "tp":          normalize_topics(r["topic_tags"]),
             "a":           r["action_type_ai"],
-            "g":           r["geography"],
+            "g":           normalize_geography(r["geography"]),
             "d":           r["intro_date"][:10],
             "y":           r["intro_date"][:4],
             "rq":          rq,
@@ -465,10 +559,11 @@ def build_json(csv_rows, legistar_links, vote_lookup=None):
             "f":           fn,
             "mt":          r["matter_type"],
             "id":          r["matter_id"],
-            "legistar_url": legistar_links.get(fn) or legistar_permalink(r.get("matter_id")),
+            "legistar_url": link,
         }
-        if fn in vote_lookup:
-            v = vote_lookup[fn]
+        vfn = vote_owner.get(r["matter_id"])
+        if vfn:
+            v = vote_lookup[vfn]
             rec["vote_yes"]     = v.get("yes_votes", [])
             rec["vote_no"]      = v.get("no_votes", [])
             rec["vote_abstain"] = v.get("abstain_votes", [])
@@ -901,7 +996,8 @@ def main():
         final_rows = [r for r in csv.DictReader(f) if r.get("tag_status") == "success"]
 
     json_records = build_json(final_rows, link_map, vote_lookup)
-    meta = {'_meta': True, 'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M')}
+    # UTC, so the value is the same wherever the pipeline runs; the pages convert it to Eastern time.
+    meta = {'_meta': True, 'last_updated': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}
     output = [meta] + json_records
 
     with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
