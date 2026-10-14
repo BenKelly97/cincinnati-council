@@ -57,6 +57,8 @@ header{background:var(--bg);border-bottom:1px solid var(--border);position:stick
 .logo{font-size:15px;font-weight:600;color:var(--text);letter-spacing:-0.01em}
 .logo span{color:var(--text3);font-weight:400}
 .header-meta{font-size:12px;color:var(--text3);margin-left:auto}
+.header-nav{display:flex;gap:14px;font-size:13px;white-space:nowrap}
+.header-nav a{color:var(--accent)}
 
 main{padding:1.5rem 0 3rem}
 
@@ -160,6 +162,8 @@ main{padding:1.5rem 0 3rem}
 @media(max-width:600px){
   .filters{grid-template-columns:1fr 1fr}
   .header-meta{display:none}
+  .header-nav{margin-left:auto;gap:12px}
+  .logo span{display:none}
   .sort-group{margin-left:0;width:100%}
 }
 </style>
@@ -170,7 +174,8 @@ main{padding:1.5rem 0 3rem}
   <div class="shell">
     <div class="header-inner">
       <div class="logo">Cincinnati City Council <span>/ Legislative Record</span></div>
-      <div class="header-meta"><span id="last-updated"></span>&nbsp;&nbsp;<span id="header-meta">Loading…</span>&nbsp;&nbsp;<a href="members.html" style="font-size:13px;color:var(--accent)">Member Records →</a></div>
+      <div class="header-meta"><span id="last-updated"></span>&nbsp;&nbsp;<span id="header-meta">Loading…</span></div>
+      <nav class="header-nav"><a href="alternative.html">Roll Call Votes →</a><a href="members.html">Member Records →</a></nav>
     </div>
   </div>
 </header>
