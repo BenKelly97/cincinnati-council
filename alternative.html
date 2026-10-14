@@ -80,6 +80,8 @@ main{padding:2rem 0 3rem}
 .tag-mode label{display:flex;align-items:center;gap:4px;font-weight:400}
 .tag-option{display:flex;align-items:center;gap:6px;font-size:13.5px;padding:3px 0}
 .tag-option label{cursor:pointer}
+.tag-group{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);padding:8px 0 3px}
+.tag-group:first-child{padding-top:0}
 
 select.plain-select{border:1px solid var(--border);padding:9px 11px;font-size:14px;background:var(--card-bg);color:var(--text);max-width:280px;width:100%;font-family:inherit}
 
@@ -259,6 +261,10 @@ const MEMBER_CANONICAL = {
 'keating':'Liz Keating','liz keating':'Liz Keating',
 'goodin':'Steve Goodin','steve goodin':'Steve Goodin'
 };
+// Councilmembers serving now. Every other name in MEMBER_CANONICAL is listed
+// as a former member in the Sponsor and Voted-by filters.
+const CURRENT_MEMBERS = ['Anna Albi','Jeff Cramerding','Ryan James','Mark Jeffreys','Scotty Johnson',
+'Jan-Michele Kearney','Evan Nolan','Meeka Owens','Seth Walsh'];
 function canonicalSponsor(name) {
 if (!name) return null;
 return MEMBER_CANONICAL[name.trim().toLowerCase()] || null;
@@ -425,9 +431,10 @@ if (voteMember) {
 // If a vote type is also chosen, that member must appear in that specific
 // array; otherwise the member must have any recorded vote on the item.
 if (voteValue) {
-if (!voteArrayFor(r, voteValue).includes(voteMember)) return false;
+if (!voteArrayFor(r, voteValue).some(n => canonicalSponsor(n) === voteMember)) return false;
 } else {
-const anyVote = ['Yes','No','Abstain','Absent','Excused'].some(v => voteArrayFor(r, v).includes(voteMember));
+// Vote arrays hold surnames ("Cramerding"); compare on the canonical full name.
+const anyVote = ['Yes','No','Abstain','Absent','Excused'].some(v => voteArrayFor(r, v).some(n => canonicalSponsor(n) === voteMember));
 if (!anyVote) return false;
 }
 }
@@ -549,19 +556,32 @@ tagOptions.innerHTML = allTags.map((t, i) =>
 // those who happen to appear as a sponsor or a recorded vote in the current
 // dataset — otherwise a member with no matching records yet gets dropped
 // from the filter entirely, making them impossible to ever select.
-const allMembers = Array.from(new Set(Object.values(MEMBER_CANONICAL))).sort();
+// Both lists are split into current and former members.
+const allMembers = Array.from(new Set(Object.values(MEMBER_CANONICAL)));
+const currentMembers = CURRENT_MEMBERS.filter(n => allMembers.includes(n)).sort();
+const formerMembers = allMembers.filter(n => !CURRENT_MEMBERS.includes(n)).sort();
+const memberGroups = [['Current members', currentMembers], ['Former members', formerMembers]];
 
 const sponsorOptions = document.getElementById('sponsor-options');
-sponsorOptions.innerHTML = allMembers.map((s, i) =>
-`<div class="tag-option"><input type="checkbox" id="sponsor-${i}" value="${s}" onchange="onFilterChange()"><label for="sponsor-${i}">${s}</label></div>`
+let si = 0;
+sponsorOptions.innerHTML = memberGroups.map(([label, names]) =>
+`<div class="tag-group">${label}</div>` + names.map(s => {
+const i = si++;
+return `<div class="tag-option"><input type="checkbox" id="sponsor-${i}" value="${s}" onchange="onFilterChange()"><label for="sponsor-${i}">${s}</label></div>`;
+}).join('')
 ).join('');
 
 const voteMemberSelect = document.getElementById('vote-member-select');
-allMembers.forEach(name => {
+memberGroups.forEach(([label, names]) => {
+const grp = document.createElement('optgroup');
+grp.label = label;
+names.forEach(name => {
 const opt = document.createElement('option');
 opt.value = name;
 opt.textContent = name;
-voteMemberSelect.appendChild(opt);
+grp.appendChild(opt);
+});
+voteMemberSelect.appendChild(grp);
 });
 }
 
