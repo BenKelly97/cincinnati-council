@@ -172,14 +172,27 @@ return null;
 function render() {
 const members = MEMBERS;
 
-// Get year range from vote data
-const dates = ALL.filter(r => r.vote_yes && r.d).map(r => r.d);
-const minYear = dates.length ? dates[dates.length-1].slice(0,4) : '2020';
-const maxYear = dates.length ? dates[0].slice(0,4) : '2026';
+// Year range of the vote data, earliest year first. A year counts only if at
+// least 5% of that year's records carry a roll call; this keeps a stray early
+// record (e.g. one sharing a file number with a later matter) from moving the
+// start year.
+const hasVote = r => ['vote_yes','vote_no','vote_abstain','vote_absent','vote_excused'].some(k => (r[k] || []).length);
+const yearTotals = {}, yearVoted = {};
+ALL.forEach(r => {
+  if (!r.y) return;
+  yearTotals[r.y] = (yearTotals[r.y] || 0) + 1;
+  if (hasVote(r)) yearVoted[r.y] = (yearVoted[r.y] || 0) + 1;
+});
+const voteYears = Object.keys(yearVoted).filter(y => yearVoted[y] / yearTotals[y] >= 0.05).sort();
+const minYear = voteYears[0] || '';
+const maxYear = voteYears[voteYears.length - 1] || '';
 const rangeLabel = minYear === maxYear ? minYear : `${minYear}–${maxYear}`;
+const firstVoteDate = ALL.filter(r => hasVote(r) && r.y >= minYear && r.d).map(r => r.d).sort()[0] || '';
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const startLabel = firstVoteDate ? `${MONTHS[+firstVoteDate.slice(5,7) - 1]} ${firstVoteDate.slice(0,4)}` : minYear;
 
 let html = `<div class="section-title">Voting Record ${rangeLabel} — Select a member</div>
-<div style="font-size:13px;color:var(--text3);margin-top:-0.5rem;margin-bottom:1.25rem;max-width:640px">Data is fairly complete from 2020 onward. Records from before 2020 may be incomplete.</div>`;
+<div style="font-size:13px;color:var(--text3);margin-top:-0.5rem;margin-bottom:1.25rem;max-width:640px">Roll call votes are available for matters introduced from ${startLabel} onward. Earlier matters have no recorded votes on this site.</div>`;
 
 function memberCard(name) {
 const s = getMemberStats(name);
