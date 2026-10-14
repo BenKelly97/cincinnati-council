@@ -130,6 +130,11 @@ const FULL_NAMES = {
 'Cranley': 'Mayor John Cranley',
 };
 
+// Full name without the title, for the member cards ("Anna Albi").
+function displayName(surname) {
+return (FULL_NAMES[surname] || surname).replace(/^(Councilmember|Vice Mayor|Mayor)\s+/, '');
+}
+
 // Members to exclude from the grid (mayors who appear in vote records)
 const EXCLUDE_MEMBERS = new Set(['Cranley']);
 
@@ -199,7 +204,7 @@ const s = getMemberStats(name);
 const yesPct = s.total ? Math.round(s.yes/s.total*100) : 0;
 const isActive = selectedMember === name;
 return `<div class="member-card ${isActive?'active':''}" onclick="selectMember('${name}')">
-<div class="member-name">${name}</div>
+<div class="member-name">${displayName(name)}</div>
 <div class="member-stats">
 <span class="stat-pill pill-total">${s.total} votes</span>
 <span class="stat-pill pill-yes">${s.yes} yes</span>
