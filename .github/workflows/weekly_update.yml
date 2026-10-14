@@ -2,7 +2,9 @@ name: Council Data Update
 
 on:
   schedule:
-    - cron: '0 21 * * 1,3,5'  # Monday, Wednesday, Friday at 5:00 PM ET (21:00 UTC during EDT)
+    # Daily at 11:37 UTC: 7:37 AM EDT / 6:37 AM EST. GitHub delays scheduled runs
+    # at busy times (the top of the hour most of all), so the minute is offset.
+    - cron: '37 11 * * *'
   workflow_dispatch:        # Also allows manual trigger from GitHub
     inputs:
       full_sync:
@@ -12,14 +14,14 @@ on:
 
 jobs:
   update:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned; ubuntu-latest moves to Ubuntu 26 from 2026-10-19
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
@@ -44,5 +46,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add council_data.json cincinnati_agenda_items_complete.csv votes_api.json title_overrides.json summary_overrides.json
-          git diff --staged --quiet || git commit -m "Weekly data update $(date +'%Y-%m-%d')"
+          git diff --staged --quiet || git commit -m "Data update $(date -u +'%Y-%m-%d %H:%M') UTC"
           git push
