@@ -2,6 +2,14 @@
 
 Notable changes to the Cincinnati City Council transparency site, most recent first. Each entry names the files touched and the live GitHub commit.
 
+## 2026-10-14 — Roll call page: member lists split current/former; Voted-by filter fixed
+
+**Split (`alternative.html`).** The Sponsor checkbox panel and the Voted-by dropdown listed all 21 councilmembers in one alphabetical list. Both are now split into "Current members" (Albi, Cramerding, James, Jeffreys, Johnson, Kearney, Nolan, Owens, Walsh) and "Former members" (the other 12). The Sponsor panel uses group headings; the Voted-by dropdown uses option groups. A new `CURRENT_MEMBERS` list sets the split; every other name in `MEMBER_CANONICAL` is treated as former.
+
+**Voted-by fix (`alternative.html`).** The Voted-by filter returned 0 results for every member. The vote arrays in council_data.json hold surnames ("Cramerding"), and the filter compared them with the full names in the dropdown ("Jeff Cramerding"). It now passes each surname through `canonicalSponsor()` before comparing. Checked against direct counts from the data: Cramerding any vote 3,177, Cramerding No 36, Landsman any vote 1,752, all equal. Mayor Cranley's 23 recorded votes have no entry in `MEMBER_CANONICAL` and stay out of the filter, as before.
+
+Files: `alternative.html`. Starting commit: [0e36aca](https://github.com/BenKelly97/cincinnati-council/commit/0e36aca7252e1ea5fc839978c1166db1653b2f7a). Commit: [a450cfa](https://github.com/BenKelly97/cincinnati-council/commit/a450cfa878f9d52bc55098d41b6eebe5e5b12258).
+
 ## 2026-10-14 — Link to the roll call page from the main page
 
 Added a "Roll Call Votes →" link to `alternative.html` in the `index.html` header, next to "Member Records →". Both links now sit in their own `header-nav` element. Before, the Member Records link was inside the header meta text, which is hidden below 600px wide, so phones had no link to either page. Both links now show at every width. Below 600px the "/ Legislative Record" subtitle is hidden to keep the header to two lines.
