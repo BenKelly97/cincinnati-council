@@ -2,6 +2,12 @@
 
 Notable changes to the Cincinnati City Council transparency site, most recent first. Each entry names the files touched and the live GitHub commit.
 
+## 2026-10-13 — Removed the stat strip from the main page
+
+Removed the four boxes above the search bar on `index.html` (Total items, Passed, Years covered, Topic categories): the HTML, their CSS, and `populateStats()`. The search bar is now the first element under the header. The header line still shows the item count and year range (now set by `populateHeader()`). No other page has the strip.
+
+Files: `index.html`. Starting commit: [6f50018](https://github.com/BenKelly97/cincinnati-council/commit/6f50018834be9071f6476b1e2ca42e6919830a28). Commit: [759d58a](https://github.com/BenKelly97/cincinnati-council/commit/759d58a46978c1ec8f50ad72fd5c9f80c9340d7a).
+
 ## 2026-10-13 — Status filter groups duplicate Legistar statuses
 
 The "All statuses" dropdown on `index.html` listed 37 raw Legistar status values, several of them the same outcome under two labels (committee recommendation "Pass" and council action "Passed", "File" and "Filed", "Adopt" and "Adopted") and seven of them committee names that Legistar stores in the status field on older matters. Added `statusGroup()`, which maps each raw status to one of 18 groups:
