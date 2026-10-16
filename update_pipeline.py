@@ -579,6 +579,25 @@ def find_addresses(text):
             out.append(a)
     return out
 
+def named_neighborhoods(text):
+    """City neighborhoods named in a Legistar title ("2133 Ravine Street in Over-the-Rhine").
+    A name used as a street name ("Linwood Avenue") does not count, and a name inside a
+    longer one ("Westwood" in "East Westwood") is dropped."""
+    names = list(CITY_NEIGHBORHOODS) + list(GEO_ALIASES)
+    found = []
+    for name in names:
+        for variant in {name, name.upper()}:
+            pat = (r"(?<![\w-])" + re.escape(variant) + r"(?![\w-])(?!\s+" + STREET_SUFFIX + r"\b)")
+            for m in re.finditer(pat, text or ""):
+                found.append((m.start(), m.end(), GEO_ALIASES.get(name, name)))
+    keep = [f for f in found
+            if not any(o is not f and o[0] <= f[0] and f[1] <= o[1] and (o[1] - o[0]) > (f[1] - f[0]) for o in found)]
+    out = []
+    for _, _, n in sorted(keep):
+        if n not in out:
+            out.append(n)
+    return out
+
 def load_boundaries():
     """[(neighborhood names, bbox, polygons)] from BOUNDARY_FILE, downloading it if missing.
     Each polygon is a list of rings (outer ring first, then holes) of (lon, lat)."""
@@ -659,8 +678,9 @@ def census_geocode(addresses):
     return out
 
 def address_geography(rows):
-    """{matter_id: "Hood1|Hood2"} for rows whose title has an address inside the city.
-    Rows not in the result keep their AI tags."""
+    """{matter_id: "Hood1|Hood2"} for rows whose title has an address: the neighborhood the
+    title names, else the map's neighborhood for the address. Rows not in the result
+    (no address, or no geocoded address inside the city) keep their AI tags."""
     areas = load_boundaries()
     cache = {}
     if os.path.exists(GEOCODE_CACHE_FILE):
@@ -684,6 +704,13 @@ def address_geography(rows):
             json.dump(cache, f, indent=0, sort_keys=True)
     out = {}
     for mid, (r, addrs) in row_addrs.items():
+        # A neighborhood named in the Legistar title is used as stated; Legistar's
+        # wording follows community council names, which differ from the SNA map
+        # in places (2133 Ravine Street is "in Over-the-Rhine"; the map says CUF).
+        named = named_neighborhoods(r.get("raw_title", ""))
+        if named:
+            out[mid] = "|".join(named)
+            continue
         ai = normalize_geography(r.get("geography", "")).split("|")
         hoods = []
         for a in addrs:
