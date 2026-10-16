@@ -57,6 +57,9 @@ EXCLUDE_FILE = "exclude_matter_ids.json"   # matter ids to remove and never add 
 AGENDA_FILE  = "agenda.json"               # meetings in the window below, for agenda.html
 AGENDA_PAST_DAYS = 14                      # meetings this many days back
 AGENDA_AHEAD_DAYS = 30                     # and this many days ahead
+AGENDA_RECHECK_DAYS = 45                   # meetings re-read from Legistar on every run
+AGENDA_ARCHIVE_START_YEAR = 2018           # first year kept in agenda_YYYY.json
+AGENDA_INDEX_FILE = "agenda_index.json"    # years and counts, for agenda.html
 
 # Cutoff: pull items introduced in the last N days
 LOOKBACK_DAYS = 14
@@ -1229,49 +1232,12 @@ def main():
     except Exception as e:
         print(f"Could not build {AGENDA_FILE} ({e}); keeping the existing file.")
 
-# ─── MEETINGS (agenda.json) ───────────────────────────────────────────────────
-
-def build_agenda(events, items_by_event, rows, today):
-    """Turn Legistar events and their event items into the agenda.json structure.
-    Only items tied to a matter are kept (roll call, prayer and similar rows are
-    dropped). The short title comes from the site's CSV when the matter is on
-    the site; otherwise the start of Legistar's title is used."""
-    by_id = {r["matter_id"]: r for r in rows}
-    meetings = []
-    for e in events:
-        date = (e.get("EventDate") or "")[:10]
-        items = []
-        for it in sorted(items_by_event.get(e.get("EventId"), []),
-                         key=lambda i: i.get("EventItemAgendaSequence") or 0):
-            mid = it.get("EventItemMatterId")
-            if not mid:
-                continue
-            mid = str(mid)
-            row = by_id.get(mid)
-            legistar_title = " ".join((it.get("EventItemTitle") or "").split())
-            items.append({
-                "n":   (it.get("EventItemAgendaNumber") or "").strip(),
-                "id":  mid,
-                "f":   it.get("EventItemMatterFile") or "",
-                "mt":  it.get("EventItemMatterType") or "",
-                "t":   row["clean_title"] if row and row.get("clean_title") else legistar_title[:160],
-                "url": legistar_permalink(mid),
-                "on_site": bool(row),
-                "action": it.get("EventItemActionName") or "",
-            })
-        meetings.append({
-            "id":       e.get("EventId"),
-            "body":     (e.get("EventBodyName") or "").strip(),
-            "date":     date,
-            "time":     (e.get("EventTime") or "").strip(),
-            "location": (e.get("EventLocation") or "").strip(),
-            "agenda_status": e.get("EventAgendaStatusName") or "",
-            "url":      e.get("EventInSiteURL") or "",
-            "upcoming": date >= today,
-            "items":    items,
-        })
-    meetings.sort(key=lambda m: (m["date"], clock_minutes(m["time"]), m["body"]))
-    return meetings
+# ─── MEETINGS (agenda.json, agenda_YYYY.json) ─────────────────────────────────
+# Meetings are kept in one file per year from AGENDA_ARCHIVE_START_YEAR. A year
+# file that does not exist yet is read from Legistar in full (a one-time
+# backfill). After that, each run re-reads only meetings from AGENDA_RECHECK_DAYS
+# back to AGENDA_AHEAD_DAYS ahead, because actions are posted after a meeting.
+# agenda.json holds the short window shown by default on agenda.html.
 
 def clock_minutes(t):
     """Minutes after midnight for Legistar times such as "9:30 AM". Unparsed times sort last."""
@@ -1281,27 +1247,110 @@ def clock_minutes(t):
     h = int(m.group(1)) % 12 + (12 if m.group(3).lower() == "p" else 0)
     return h * 60 + int(m.group(2))
 
+def fetch_meetings(start, end):
+    """Legistar meetings with EventDate in [start, end) (YYYY-MM-DD) and their matter items.
+    Items keep the Legistar title start in "lt"; titles are set later by title_items()."""
+    url = (f"{API_BASE}/events?$filter=EventDate+ge+datetime'{start}T00:00:00'"
+           f"+and+EventDate+lt+datetime'{end}T00:00:00'&$orderby=EventDate")
+    events = json.loads(http_get_text(url, {"Accept": "application/json"}))
+    meetings = []
+    for e in events:
+        eid = e.get("EventId")
+        items = json.loads(http_get_text(f"{API_BASE}/events/{eid}/eventitems",
+                                         {"Accept": "application/json"}))
+        time.sleep(DELAY_BETWEEN_ITEMS)
+        kept = []
+        for it in sorted(items, key=lambda i: i.get("EventItemAgendaSequence") or 0):
+            if not it.get("EventItemMatterId"):
+                continue                      # roll call, prayer and other lines with no matter
+            kept.append({
+                "n":      (it.get("EventItemAgendaNumber") or "").strip(),
+                "id":     str(it["EventItemMatterId"]),
+                "f":      it.get("EventItemMatterFile") or "",
+                "mt":     it.get("EventItemMatterType") or "",
+                "lt":     " ".join((it.get("EventItemTitle") or "").split())[:160],
+                "action": it.get("EventItemActionName") or "",
+            })
+        meetings.append({
+            "id":       eid,
+            "body":     (e.get("EventBodyName") or "").strip(),
+            "date":     (e.get("EventDate") or "")[:10],
+            "time":     (e.get("EventTime") or "").strip(),
+            "location": (e.get("EventLocation") or "").strip(),
+            "agenda_status": e.get("EventAgendaStatusName") or "",
+            "url":      e.get("EventInSiteURL") or "",
+            "items":    kept,
+        })
+    return meetings
+
+def title_items(meetings, by_id):
+    """Set t, on_site and url on each item. t is the site's short title when the
+    matter is on the site, else the start of Legistar's title (kept in lt)."""
+    for m in meetings:
+        for it in m["items"]:
+            row = by_id.get(it["id"])
+            if row and row.get("clean_title"):
+                it["t"] = row["clean_title"]
+                it["on_site"] = True
+                it.pop("lt", None)            # Legistar title not needed once on the site
+            else:
+                it["t"] = it.get("lt") or it.get("t", "")
+                it["on_site"] = False
+            it["url"] = legistar_permalink(it["id"])
+    meetings.sort(key=lambda m: (m["date"], clock_minutes(m["time"]), m["body"]))
+
+def agenda_year_file(year):
+    return f"agenda_{year}.json"
+
 def write_agenda(rows):
     from zoneinfo import ZoneInfo
     today = datetime.now(ZoneInfo("America/New_York")).date()
-    start = (today - timedelta(days=AGENDA_PAST_DAYS)).strftime("%Y-%m-%dT00:00:00")
-    end = (today + timedelta(days=AGENDA_AHEAD_DAYS)).strftime("%Y-%m-%dT00:00:00")
-    url = (f"{API_BASE}/events?$filter=EventDate+ge+datetime'{start}'"
-           f"+and+EventDate+le+datetime'{end}'&$orderby=EventDate")
-    events = json.loads(http_get_text(url, {"Accept": "application/json"}))
-    items_by_event = {}
-    for e in events:
-        eid = e.get("EventId")
-        items_by_event[eid] = json.loads(http_get_text(f"{API_BASE}/events/{eid}/eventitems",
-                                                       {"Accept": "application/json"}))
-        time.sleep(DELAY_BETWEEN_ITEMS)
-    meetings = build_agenda(events, items_by_event, rows, today.isoformat())
-    out = {"generated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
-           "from": start[:10], "to": end[:10], "meetings": meetings}
+    by_id = {r["matter_id"]: r for r in rows}
+    years = {}
+    for y in range(AGENDA_ARCHIVE_START_YEAR, today.year + 1):
+        path = agenda_year_file(y)
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                years[y] = json.load(f)["meetings"]
+    # One-time backfill of missing years. A year that fails is retried next run.
+    for y in range(AGENDA_ARCHIVE_START_YEAR, today.year + 1):
+        if y in years:
+            continue
+        try:
+            years[y] = fetch_meetings(f"{y}-01-01", f"{y + 1}-01-01")
+            print(f"Meetings {y}: read {len(years[y])} from Legistar (backfill).")
+        except Exception as e:
+            print(f"Meetings {y}: backfill failed ({e}); retried next run.")
+    # Re-read the recent and upcoming window and replace those meetings.
+    w_start = (today - timedelta(days=AGENDA_RECHECK_DAYS)).isoformat()
+    w_end = (today + timedelta(days=AGENDA_AHEAD_DAYS + 1)).isoformat()
+    fresh = fetch_meetings(w_start, w_end)
+    for y in {int(w_start[:4]), int(w_end[:4])}:
+        if y not in years and y >= AGENDA_ARCHIVE_START_YEAR:
+            years[y] = []
+    for y in list(years):
+        keep = [m for m in years[y] if not (w_start <= m["date"] < w_end)]
+        years[y] = keep + [m for m in fresh if m["date"][:4] == str(y)]
+    gen = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+    index = []
+    for y in sorted(years):
+        title_items(years[y], by_id)
+        with open(agenda_year_file(y), "w", encoding="utf-8") as f:
+            json.dump({"year": y, "generated_utc": gen, "meetings": years[y]}, f, separators=(",", ":"))
+        index.append({"year": y, "meetings": len(years[y]),
+                      "items": sum(len(m["items"]) for m in years[y])})
+    with open(AGENDA_INDEX_FILE, "w", encoding="utf-8") as f:
+        json.dump({"generated_utc": gen, "years": index}, f, separators=(",", ":"))
+    # Default view: AGENDA_PAST_DAYS back to AGENDA_AHEAD_DAYS ahead.
+    d_start = (today - timedelta(days=AGENDA_PAST_DAYS)).isoformat()
+    d_end = (today + timedelta(days=AGENDA_AHEAD_DAYS)).isoformat()
+    window = [dict(m, upcoming=m["date"] >= today.isoformat())
+              for y in sorted(years) for m in years[y] if d_start <= m["date"] <= d_end]
     with open(AGENDA_FILE, "w", encoding="utf-8") as f:
-        json.dump(out, f, separators=(",", ":"))
-    print(f"{AGENDA_FILE}: {len(meetings)} meetings, "
-          f"{sum(len(m['items']) for m in meetings)} items ({start[:10]} to {end[:10]}).")
+        json.dump({"generated_utc": gen, "from": d_start, "to": d_end, "meetings": window},
+                  f, separators=(",", ":"))
+    print(f"{AGENDA_FILE}: {len(window)} meetings; year files: "
+          + ", ".join(f"{i['year']} ({i['meetings']})" for i in index))
 
 if __name__ == "__main__":
     main()
