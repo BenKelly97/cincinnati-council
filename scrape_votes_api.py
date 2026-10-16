@@ -45,6 +45,30 @@ SKIP_ACTIONS = {
     'recommend passage', 'recommend', 'amended', 'amendment'
 }
 
+# The Mayor is not a member of Council. Legistar lists Mayor John Cranley in some
+# 2020-2021 roll calls; mayors are left out of every vote list on the site.
+MAYOR_SURNAMES = {"Cranley", "Pureval"}
+VOTE_LIST_KEYS = ("yes", "no", "abstain", "absent", "excused")
+
+def is_mayor(name):
+    return bool(name) and name.split()[-1] in MAYOR_SURNAMES
+
+def drop_mayors(rec):
+    """Remove mayors from a vote record in place. Returns the number removed."""
+    removed = 0
+    for k in VOTE_LIST_KEYS:
+        full = rec.get(f"{k}_full") or []
+        short = rec.get(f"{k}_votes") or []
+        removed += sum(1 for n in full if is_mayor(n))
+        rec[f"{k}_full"] = [n for n in full if not is_mayor(n)]
+        rec[f"{k}_votes"] = [n for n in short if n not in MAYOR_SURNAMES]
+    if removed:
+        rec["total_votes"] = max(0, int(rec.get("total_votes") or 0) - removed)
+        rec["vote_values"] = sorted({v for v, k in (("Yes", "yes"), ("No", "no"), ("Abstain", "abstain"),
+                                                    ("Absent", "absent"), ("Excused", "excused"))
+                                     if rec.get(f"{k}_full")})
+    return removed
+
 def is_primary_action(action_name):
     """Return True if this action represents the main passage vote."""
     if not action_name:
@@ -126,6 +150,9 @@ def main():
         with open(OUTPUT_FILE) as f:
             all_votes = json.load(f)
         processed_events = set(all_votes.pop("_processed_events", []))
+        n_mayor = sum(drop_mayors(v) for k, v in all_votes.items() if not k.startswith("_"))
+        if n_mayor:
+            print(f"Removed {n_mayor} mayor entries from existing vote records.")
         vote_records = {k: v for k, v in all_votes.items() if not k.startswith("_")}
         if vote_records:
             latest = max(v.get("meeting_date", "") for v in vote_records.values())
@@ -240,6 +267,7 @@ def main():
                 "vote_values":   vote_values,
                 "total_votes":   len(best_votes)
             }
+            drop_mayors(all_votes[fn])
             vote_count += 1
             new_votes += 1
             time.sleep(0.1)
