@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meetings — Cincinnati City Council</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#ffffff;
+  --bg2:#f7f6f3;
+  --bg3:#f0efe9;
+  --text:#1a1a18;
+  --text2:#5a5a55;
+  --text3:#9a9a92;
+  --border:#e0dfd8;
+  --border2:#c8c7be;
+  --blue-bg:#e8f0fb;
+  --blue-text:#1a4a8a;
+  --green-bg:#e6f4ec;
+  --green-text:#1a5c35;
+  --red-bg:#fceaea;
+  --red-text:#8a1a1a;
+  --amber-bg:#fef3e2;
+  --amber-text:#7a4a0a;
+  --accent:#2255cc;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1c1c1a;
+    --bg2:#242422;
+    --bg3:#2c2c28;
+    --text:#f0efe8;
+    --text2:#a0a098;
+    --text3:#606058;
+    --border:#3a3a35;
+    --border2:#4a4a45;
+    --blue-bg:#0d2040;
+    --blue-text:#7aaaf0;
+    --green-bg:#0d2a18;
+    --green-text:#6acf96;
+    --red-bg:#2a0d0d;
+    --red-text:#f08080;
+    --amber-bg:#2a1a06;
+    --amber-text:#f0c070;
+    --accent:#6699ff;
+  }
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg3);color:var(--text);min-height:100vh;font-size:15px;line-height:1.5}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.shell{max-width:960px;margin:0 auto;padding:0 1rem}
+header{background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.header-inner{display:flex;align-items:center;gap:1rem;padding:0.75rem 0}
+.logo{font-size:15px;font-weight:600;color:var(--text);letter-spacing:-0.01em}
+.logo span{color:var(--text3);font-weight:400}
+.header-nav{display:flex;gap:14px;font-size:13px;white-space:nowrap;margin-left:auto}
+.header-nav a{color:var(--accent)}
+.header-nav a.here{color:var(--text);font-weight:600}
+main{padding:1.5rem 0 3rem}
+h1{font-size:20px;font-weight:600;letter-spacing:-0.01em;margin-bottom:0.25rem}
+.lede{font-size:13px;color:var(--text2);margin-bottom:1.25rem}
+.loading{text-align:center;padding:3rem;color:var(--text3);font-size:14px}
+.empty{text-align:center;padding:2rem;color:var(--text2);font-size:14px;background:var(--bg);border:1px solid var(--border);border-radius:12px}
+.error-box{background:var(--red-bg);color:var(--red-text);border:1px solid;border-radius:10px;padding:1rem 1.25rem;font-size:14px;margin-bottom:1rem}
+@media(max-width:600px){
+  .logo span{display:none}
+  .header-inner{flex-wrap:wrap;row-gap:4px}
+  .header-nav{margin-left:0;gap:12px;flex-wrap:wrap}
+}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
+.tabs{display:flex;border:1px solid var(--border2);border-radius:8px;overflow:hidden}
+.tabs button{border:none;background:var(--bg);color:var(--text2);font-size:13px;padding:7px 14px;cursor:pointer}
+.tabs button.on{background:var(--accent);color:#fff}
+.toolbar select{padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;max-width:100%}
+.count{font-size:13px;color:var(--text3);margin-left:auto}
+.meeting{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:0.75rem}
+.m-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.m-date{font-weight:600;font-size:15px}
+.m-body{font-size:15px}
+.m-meta{font-size:12.5px;color:var(--text3);margin-top:2px}
+.badge{display:inline-block;font-size:11px;font-weight:500;padding:1px 8px;border-radius:20px;white-space:nowrap;line-height:1.6;background:var(--bg2);color:var(--text2)}
+.badge.draft{background:var(--amber-bg);color:var(--amber-text)}
+.badge.final{background:var(--green-bg);color:var(--green-text)}
+.items{list-style:none;margin-top:0.75rem;border-top:1px solid var(--border)}
+.items li{display:grid;grid-template-columns:2.2rem 1fr;gap:4px 8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:14px}
+.items li:last-child{border-bottom:none}
+.i-n{color:var(--text3);font-size:13px}
+.i-sub{grid-column:2;font-size:12px;color:var(--text3)}
+.i-raw{color:var(--text2)}
+.more{margin-top:6px;background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;padding:0}
+.no-items{font-size:13px;color:var(--text3);margin-top:0.5rem}
+.foot{font-size:12px;color:var(--text3);margin-top:1.5rem}
+</style>
+</head>
+<body>
+<header>
+  <div class="shell">
+    <div class="header-inner">
+      <div class="logo">Cincinnati City Council <span>/ Meetings</span></div>
+      <nav class="header-nav">
+<a href="index.html">All Legislation</a>
+<a href="agenda.html" class="here">Meetings</a>
+<a href="alternative.html">Roll Call Votes</a>
+<a href="members.html">Member Records</a>
+<a href="about.html">About</a>
+      </nav>
+    </div>
+  </div>
+</header>
+<main>
+  <div class="shell">
+    <h1>Meetings</h1>
+    <p class="lede">Council and committee meetings from Legistar, two weeks back and thirty days ahead. Agendas are posted by the Clerk of Council; a draft agenda can change before the meeting. Items link to their Legistar records.</p>
+    <div id="error-box" class="error-box" style="display:none"></div>
+    <div class="toolbar">
+      <div class="tabs" role="tablist">
+        <button id="tab-up" class="on" onclick="setView('up')">Upcoming</button>
+        <button id="tab-past" onclick="setView('past')">Recent</button>
+      </div>
+      <select id="body-select" onchange="render()" aria-label="Meeting body"><option value="">All bodies</option></select>
+      <span class="count" id="count"></span>
+    </div>
+    <div id="list"><div class="loading">Loading meetings…</div></div>
+    <p class="foot" id="foot"></p>
+  </div>
+</main>
+<script>
+let DATA = null;
+let view = 'up';
+const SHOW_FIRST = 8;
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtDate(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US',
+    { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+function fmtUtc(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(v || '');
+  if (!m) return v || '';
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
+  return d.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric',
+    year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' ET';
+}
+function todayET() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+}
+function statusBadge(s) {
+  if (!s) return '';
+  const cls = /draft/i.test(s) ? 'draft' : /final/i.test(s) ? 'final' : '';
+  return `<span class="badge ${cls}">Agenda: ${esc(s)}</span>`;
+}
+function itemHtml(it, past) {
+  const title = it.on_site ? esc(it.t) : `<span class="i-raw">${esc(it.t)}</span>`;
+  const link = it.url ? `<a href="${esc(it.url)}" target="_blank" rel="noopener">${title}</a>` : title;
+  const sub = [it.mt, it.f ? 'File ' + it.f : '', past && it.action ? 'Action: ' + it.action : '',
+    it.on_site ? '' : 'Not yet on this site'].filter(Boolean).map(esc).join(' · ');
+  return `<li><span class="i-n">${esc(it.n)}</span><span>${link}</span><span class="i-sub">${sub}</span></li>`;
+}
+function meetingHtml(m, idx) {
+  const past = view === 'past';
+  const items = m.items || [];
+  const shown = m._open ? items : items.slice(0, SHOW_FIRST);
+  const list = items.length
+    ? `<ul class="items">${shown.map(it => itemHtml(it, past)).join('')}</ul>` +
+      (items.length > SHOW_FIRST ? `<button class="more" onclick="toggleMore(${idx})">${m._open ? 'Show fewer' : 'Show all ' + items.length + ' items'}</button>` : '')
+    : '<div class="no-items">No agenda items posted yet.</div>';
+  const meta = [m.time, m.location].filter(Boolean).map(esc).join(' · ');
+  const link = m.url ? ` · <a href="${esc(m.url)}" target="_blank" rel="noopener">Legistar meeting page</a>` : '';
+  return `<div class="meeting">
+    <div class="m-head"><span class="m-date">${fmtDate(m.date)}</span><span class="m-body">${esc(m.body)}</span>${statusBadge(m.agenda_status)}</div>
+    <div class="m-meta">${meta}${link}</div>
+    ${list}
+  </div>`;
+}
+let CURRENT = [];
+function render() {
+  const body = document.getElementById('body-select').value;
+  const today = todayET();
+  let ms = DATA.meetings.filter(m => (view === 'up' ? m.date >= today : m.date < today));
+  if (body) ms = ms.filter(m => m.body === body);
+  if (view === 'past') ms = ms.slice().reverse();
+  CURRENT = ms;
+  document.getElementById('count').textContent = ms.length + (ms.length === 1 ? ' meeting' : ' meetings');
+  document.getElementById('list').innerHTML = ms.length ? ms.map(meetingHtml).join('')
+    : `<div class="empty">${view === 'up' ? 'No upcoming meetings are posted in Legistar for the next 30 days' : 'No meetings in the last 14 days'}${body ? ' for this body' : ''}.</div>`;
+}
+function toggleMore(i) { CURRENT[i]._open = !CURRENT[i]._open; render(); }
+function setView(v) {
+  view = v;
+  document.getElementById('tab-up').classList.toggle('on', v === 'up');
+  document.getElementById('tab-past').classList.toggle('on', v === 'past');
+  render();
+}
+async function load() {
+  try {
+    const r = await fetch('agenda.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    DATA = await r.json();
+    const bodies = [...new Set(DATA.meetings.map(m => m.body))].sort();
+    document.getElementById('body-select').insertAdjacentHTML('beforeend',
+      bodies.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join(''));
+    document.getElementById('foot').textContent = `Meetings from ${fmtDate(DATA.from)} to ${fmtDate(DATA.to)}. Read from Legistar ${fmtUtc(DATA.generated_utc)}; refreshed with the daily data update.`;
+    render();
+  } catch (e) {
+    document.getElementById('list').innerHTML = '';
+    const b = document.getElementById('error-box');
+    b.style.display = 'block';
+    b.textContent = 'Could not load the meeting list (' + e.message + '). Meetings are listed on Legistar: cincinnatioh.legistar.com/Calendar.aspx';
+  }
+}
+load();
+</script>
+</body>
+</html>
