@@ -580,16 +580,18 @@ def find_addresses(text):
     return out
 
 def named_neighborhoods(text):
-    """City neighborhoods named in a Legistar title ("2133 Ravine Street in Over-the-Rhine").
-    A name used as a street name ("Linwood Avenue") does not count, and a name inside a
-    longer one ("Westwood" in "East Westwood") is dropped."""
+    """City neighborhoods a Legistar title places the matter in: "in Walnut Hills",
+    "in the Over-the-Rhine neighborhood". Names in business names ("OTR Holdings",
+    "W Salon & Spa Hyde Park") and street names ("Linwood Avenue") do not count, and
+    a name inside a longer one ("Westwood" in "East Westwood") is dropped."""
     names = list(CITY_NEIGHBORHOODS) + list(GEO_ALIASES)
     found = []
     for name in names:
         for variant in {name, name.upper()}:
-            pat = (r"(?<![\w-])" + re.escape(variant) + r"(?![\w-])(?!\s+" + STREET_SUFFIX + r"\b)")
+            pat = (r"\b(?:[Ii]n|IN)\s+(?:(?:[Tt]he|THE)\s+)?(?:" + re.escape(variant) + r")"
+                   r"(?![\w-])(?!\s+" + STREET_SUFFIX + r"\b)")
             for m in re.finditer(pat, text or ""):
-                found.append((m.start(), m.end(), GEO_ALIASES.get(name, name)))
+                found.append((m.end() - len(variant), m.end(), GEO_ALIASES.get(name, name)))
     keep = [f for f in found
             if not any(o is not f and o[0] <= f[0] and f[1] <= o[1] and (o[1] - o[0]) > (f[1] - f[0]) for o in found)]
     out = []
