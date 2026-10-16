@@ -88,6 +88,7 @@ select.plain-select{border:1px solid var(--border);padding:9px 11px;font-size:14
 .clear-link{font-size:13px;background:none;border:none;color:var(--serif-link);cursor:pointer;text-decoration:underline;padding:0;align-self:flex-end}
 
 .result-count{font-size:13px;color:var(--text3);margin-bottom:1rem}
+.updated-line{font-size:12px;color:var(--text3);margin:-0.5rem 0 1rem}
 
 /* Docket accordion cards */
 .docket{background:var(--card-bg);border-radius:5px;padding:18px 21px;margin-bottom:14px;cursor:pointer;transition:background 0.12s}
@@ -146,7 +147,9 @@ select.plain-select{border:1px solid var(--border);padding:9px 11px;font-size:14
 <div class="tagline">Legislative Record</div>
 <div class="topnav">
 <a href="index.html">All Legislation</a>
+<a href="agenda.html">Meetings</a>
 <a href="members.html">Member Records</a>
+<a href="about.html">About</a>
 </div>
 </div>
 </div>
@@ -218,6 +221,7 @@ select.plain-select{border:1px solid var(--border);padding:9px 11px;font-size:14
 </div>
 
 <div class="result-count" id="result-count"></div>
+<div class="updated-line" id="last-updated"></div>
 <div id="results"><div class="loading">Loading records&hellip;</div></div>
 <div class="pagination" id="pagination"></div>
 
@@ -269,6 +273,13 @@ function canonicalSponsor(name) {
 if (!name) return null;
 return MEMBER_CANONICAL[name.trim().toLowerCase()] || null;
 }
+// Vote arrays hold surnames. Display the full name. John Cranley (Mayor) is
+// not in MEMBER_CANONICAL; mapped here in case a record still lists him.
+function voterName(n) {
+if (n === 'Cranley') return 'John Cranley';
+return canonicalSponsor(n) || n;
+}
+function voterNames(list) { return list.map(voterName).join(', '); }
 function itemSponsors(r) {
 if (!r.rq) return [];
 // Split in case rq ever holds more than one name; canonicalize each token.
@@ -290,8 +301,8 @@ const groups = [
 {arr: r.vote_excused, label: 'Excused'},
 ];
 const rows = [];
-groups.forEach(g => (g.arr || []).forEach(name => rows.push({name, label: g.label})));
-rows.sort((a, b) => a.name.localeCompare(b.name));
+groups.forEach(g => (g.arr || []).forEach(name => rows.push({name: voterName(name), surname: name, label: g.label})));
+rows.sort((a, b) => a.surname.localeCompare(b.surname));
 return rows;
 }
 
@@ -302,9 +313,9 @@ const absent = r.vote_absent || [];
 const passed = r.st && /pass|adopt|confirm/i.test(r.st);
 const failed = r.st && /fail|postpone/i.test(r.st);
 const verb = passed ? 'adopted' : failed ? 'failed to be adopted' : (r.st || 'recorded');
-const parts = [`yeas ${yes.length} (${yes.join(', ') || '—'})`];
-if (no.length) parts.push(`nays ${no.length} (${no.join(', ')})`);
-if (absent.length) parts.push(`absent ${absent.length} (${absent.join(', ')})`);
+const parts = [`yeas ${yes.length} (${voterNames(yes) || '—'})`];
+if (no.length) parts.push(`nays ${no.length} (${voterNames(no)})`);
+if (absent.length) parts.push(`absent ${absent.length} (${voterNames(absent)})`);
 return `The matter was ${verb}: ${parts.join(', ')}.`;
 }
 
@@ -585,12 +596,24 @@ voteMemberSelect.appendChild(grp);
 });
 }
 
+// council_data.json stores last_updated in UTC as "YYYY-MM-DD HH:MM".
+function formatUpdated(v) {
+const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(v || '');
+if (!m) return v;
+const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
+return d.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric',
+year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' ET';
+}
+
 async function loadData() {
 try {
 const resp = await fetch('council_data.json');
 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 const raw = await resp.json();
-if (raw[0] && raw[0]._meta) raw.shift();
+if (raw[0] && raw[0]._meta) {
+const meta = raw.shift();
+if (meta.last_updated) document.getElementById('last-updated').textContent = 'Data updated ' + formatUpdated(meta.last_updated);
+}
 ALL = raw.filter(r => r.vote_yes && r.vote_yes.length);
 try {
 const ovResp = await fetch('title_overrides.json', { cache: 'no-store' });
