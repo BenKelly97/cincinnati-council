@@ -84,6 +84,9 @@ h1{font-size:20px;font-weight:600;letter-spacing:-0.01em;margin-bottom:0.25rem}
 .badge{display:inline-block;font-size:11px;font-weight:500;padding:1px 8px;border-radius:20px;white-space:nowrap;line-height:1.6;background:var(--bg2);color:var(--text2)}
 .badge.draft{background:var(--amber-bg);color:var(--amber-text)}
 .badge.final{background:var(--green-bg);color:var(--green-text)}
+.badge.cancel{background:var(--red-bg);color:var(--red-text)}
+.badge.note{white-space:normal}
+.meeting.cancelled .m-date,.meeting.cancelled .m-body{text-decoration:line-through;color:var(--text3)}
 .items{list-style:none;margin-top:0.75rem;border-top:1px solid var(--border)}
 .items li{display:grid;grid-template-columns:2.2rem 1fr;gap:4px 8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:14px}
 .items li:last-child{border-bottom:none}
@@ -170,6 +173,7 @@ function itemHtml(it, past) {
     it.on_site ? '' : 'Not on this site'].filter(Boolean).map(esc).join(' · ');
   return `<li><span class="i-n">${esc(it.n)}</span><span>${link}</span><span class="i-sub">${sub}</span></li>`;
 }
+function isCancelled(m) { return /cancel/i.test(m.comment || ''); }
 function meetingHtml(m, idx) {
   const past = view !== 'up';
   const q = view === 'year' ? document.getElementById('item-search').value.trim().toLowerCase() : '';
@@ -178,11 +182,13 @@ function meetingHtml(m, idx) {
   const list = items.length
     ? `<ul class="items">${shown.map(it => itemHtml(it, past)).join('')}</ul>` +
       (items.length > SHOW_FIRST ? `<button class="more" onclick="toggleMore(${idx})">${m._open ? 'Show fewer' : 'Show all ' + items.length + ' items'}</button>` : '')
-    : '<div class="no-items">No agenda items posted yet.</div>';
+    : `<div class="no-items">${isCancelled(m) ? 'Meeting cancelled.' : m.date >= todayET() ? 'No agenda items posted yet.' : 'No agenda items in Legistar.'}</div>`;
   const meta = [m.time, m.location].filter(Boolean).map(esc).join(' · ');
   const link = m.url ? ` · <a href="${esc(m.url)}" target="_blank" rel="noopener">Legistar meeting page</a>` : '';
-  return `<div class="meeting">
-    <div class="m-head"><span class="m-date">${fmtDate(m.date)}</span><span class="m-body">${esc(m.body)}</span>${statusBadge(m.agenda_status)}</div>
+  const note = isCancelled(m) ? '<span class="badge cancel">Cancelled</span>'
+    : (m.comment ? `<span class="badge note">${esc(m.comment)}</span>` : '');
+  return `<div class="meeting${isCancelled(m) ? ' cancelled' : ''}">
+    <div class="m-head"><span class="m-date">${fmtDate(m.date)}</span><span class="m-body">${esc(m.body)}</span>${note}${isCancelled(m) ? '' : statusBadge(m.agenda_status)}</div>
     <div class="m-meta">${meta}${link}</div>
     ${list}
   </div>`;
