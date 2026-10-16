@@ -35,6 +35,13 @@ header{background:var(--bg);border-bottom:1px solid var(--border);position:stick
 .logo{font-size:15px;font-weight:600;color:var(--text)}
 .logo span{color:var(--text3);font-weight:400}
 .back-link{font-size:13px;color:var(--accent);margin-left:auto;text-decoration:none}
+.header-meta{font-size:12px;color:var(--text3);margin-left:auto}
+.header-meta + .back-link{margin-left:0}
+@media(max-width:600px){
+.header-inner{flex-wrap:wrap;row-gap:2px}
+.header-meta{order:3;width:100%;margin-left:0}
+.header-meta + .back-link{margin-left:auto}
+}
 main{padding:1.5rem 0 3rem}
 
 /* Member grid */
@@ -89,6 +96,7 @@ main{padding:1.5rem 0 3rem}
 <div class="shell">
 <div class="header-inner">
 <div class="logo">Cincinnati City Council <span>/ Member Voting Records</span></div>
+<div class="header-meta" id="last-updated"></div>
 <a href="index.html" class="back-link">← All Legislation</a>
 </div>
 </div>
@@ -307,10 +315,22 @@ voteFilter = f;
 render();
 }
 
+// council_data.json stores last_updated in UTC as "YYYY-MM-DD HH:MM".
+function formatUpdated(v) {
+const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(v || '');
+if (!m) return v;
+const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
+return d.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric',
+year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' ET';
+}
+
 async function loadData() {
 const resp = await fetch('council_data.json');
 const raw = await resp.json();
-if (raw[0] && raw[0]._meta) raw.shift();
+if (raw[0] && raw[0]._meta) {
+const meta = raw.shift();
+if (meta.last_updated) document.getElementById('last-updated').textContent = 'Updated ' + formatUpdated(meta.last_updated);
+}
 ALL = raw;
 try {
 const ovResp = await fetch('title_overrides.json', { cache: 'no-store' });
