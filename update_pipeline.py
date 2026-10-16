@@ -54,6 +54,9 @@ VOTES_FILE    = "votes_api.json"
 TITLE_OVERRIDES_FILE = "title_overrides.json"
 SUMMARY_OVERRIDES_FILE = "summary_overrides.json"
 EXCLUDE_FILE = "exclude_matter_ids.json"   # matter ids to remove and never add (JSON list)
+AGENDA_FILE  = "agenda.json"               # meetings in the window below, for agenda.html
+AGENDA_PAST_DAYS = 14                      # meetings this many days back
+AGENDA_AHEAD_DAYS = 30                     # and this many days ahead
 
 # Cutoff: pull items introduced in the last N days
 LOOKBACK_DAYS = 14
@@ -521,9 +524,187 @@ def vote_target_rows(rows, vote):
     current = [r for r in cands if (r.get("status") or "") != "Historical"] or cands
     return [max(current, key=lambda r: (r.get("intro_date") or ""))]
 
-def build_json(csv_rows, legistar_links, vote_lookup=None):
+# ─── NEIGHBORHOODS FROM ADDRESSES ────────────────────────────────────────────
+# When a matter's Legistar title contains a street address, the neighborhood is
+# taken from the City's boundary map instead of the AI tag. Addresses are
+# geocoded with the U.S. Census geocoder (free, public) and placed in the City
+# Planning Department's 2020 Statistical Neighborhood Approximations (CAGIS).
+# Any failure here leaves the AI tags in place.
+
+GEOCODE_CACHE_FILE = "geocode_cache.json"            # {"address": [lon, lat] or null}
+BOUNDARY_FILE = "neighborhoods_sna2020.geojson"      # downloaded once, then kept in the repo
+BOUNDARY_URLS = [
+    "https://hub.arcgis.com/api/v3/datasets/572561553c9e4d618d2d7939c5261d46_0/downloads/data"
+    "?format=geojson&spatialRefId=4326&where=1%3D1",
+    "https://opendata.arcgis.com/datasets/572561553c9e4d618d2d7939c5261d46_0.geojson",
+]
+CENSUS_BATCH_URL = "https://geocoding.geo.census.gov/geocoder/locations/addressbatch"
+CENSUS_BATCH_SIZE = 1000
+# SNA areas whose names differ from the site's list. Three SNA areas cover two
+# neighborhoods each; see address_geography().
+SNA_NAMES = {
+    "Roll Hill": ("Villages at Roll Hill",),
+    "English Woods_North Fairmount": ("English Woods", "North Fairmount"),
+    "Lower Price Hill_Queensgate": ("Lower Price Hill", "Queensgate"),
+    "Riverside_Sedamsville": ("Riverside", "Sedamsville"),
+}
+# Records whose address is not the subject of the matter (a Legislative
+# Agent's office address, for example) are not geocoded.
+NO_GEOCODE_TYPES = {"Registration", "Registration-Update", "Termination", "Successor"}
+
+STREET_SUFFIX = (r"(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Boulevard|Blvd|Lane|Ln|Court|Ct|Place|Pl|Pike|"
+                 r"Parkway|Pkwy|Terrace|Ter|Circle|Cir|Highway|Hwy|Alley|Way|Row|Trail|Ridge|Plaza)")
+ADDRESS_RE = re.compile(
+    r"\b([1-9]\d{0,4})(?:\s*[-–&]\s*\d{1,5}[A-Za-z]?)?[A-Za-z]?\s+"
+    r"((?:[NSEW]\.?\s+)?(?:[A-Za-z][A-Za-z\.'\-]*\s+){0,3}?" + STREET_SUFFIX +
+    r"(?:\.?\s+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Place|Pl))?)\.?(?=[\s,;:)]|$)",
+    re.I)
+ADDRESS_BAD_FIRST = {"of", "and", "the", "to", "for", "in", "on", "at", "a", "an", "from", "with", "by",
+                     "or", "per", "fy", "section", "sections", "units", "unit", "acres", "feet", "foot",
+                     "sq", "square", "days", "years"}
+
+def find_addresses(text):
+    """Street addresses in a Legistar title, e.g. "3515 Madison Road". For a range
+    such as 3628-3640 the first number is used."""
+    out = []
+    for m in ADDRESS_RE.finditer(text or ""):
+        num, street = m.group(1), " ".join(m.group(2).split())
+        words = street.replace(".", " ").split()
+        if words[0].lower() in ADDRESS_BAD_FIRST:
+            continue
+        if len([w for w in words if w.upper() not in ("N", "S", "E", "W")]) < 2:
+            continue                                  # a bare suffix ("2569 St") is not an address
+        a = f"{num} {street}".title()
+        if a not in out:
+            out.append(a)
+    return out
+
+def load_boundaries():
+    """[(neighborhood names, bbox, polygons)] from BOUNDARY_FILE, downloading it if missing.
+    Each polygon is a list of rings (outer ring first, then holes) of (lon, lat)."""
+    if not os.path.exists(BOUNDARY_FILE):
+        last = None
+        for url in BOUNDARY_URLS:
+            try:
+                r = requests.get(url, timeout=120)
+                r.raise_for_status()
+                data = r.json()
+                if len(data.get("features", [])) < 40:
+                    raise ValueError(f"only {len(data.get('features', []))} features")
+                with open(BOUNDARY_FILE, "w", encoding="utf-8") as f:
+                    json.dump(data, f, separators=(",", ":"))
+                print(f"Downloaded {BOUNDARY_FILE} ({len(data['features'])} areas).")
+                break
+            except Exception as e:
+                last = e
+        else:
+            raise RuntimeError(f"could not download neighborhood boundaries ({last})")
+    with open(BOUNDARY_FILE, encoding="utf-8") as f:
+        data = json.load(f)
+    areas = []
+    for feat in data["features"]:
+        name = (feat.get("properties") or {}).get("SNA_NAME", "")
+        names = SNA_NAMES.get(name, (name,))
+        geom = feat.get("geometry") or {}
+        polys = geom.get("coordinates", [])
+        if geom.get("type") == "Polygon":
+            polys = [polys]
+        elif geom.get("type") != "MultiPolygon":
+            continue
+        polys = [[[(float(x), float(y)) for x, y, *_ in ring] for ring in poly] for poly in polys]
+        xs = [x for poly in polys for x, _ in poly[0]]
+        ys = [y for poly in polys for _, y in poly[0]]
+        areas.append((names, (min(xs), min(ys), max(xs), max(ys)), polys))
+    return areas
+
+def point_in_ring(x, y, ring):
+    inside = False
+    j = len(ring) - 1
+    for i in range(len(ring)):
+        xi, yi = ring[i]
+        xj, yj = ring[j]
+        if (yi > y) != (yj > y) and x < (xj - xi) * (y - yi) / (yj - yi) + xi:
+            inside = not inside
+        j = i
+    return inside
+
+def locate(lon, lat, areas):
+    """Neighborhood names for a point, or () when it is outside every area."""
+    for names, (x0, y0, x1, y1), polys in areas:
+        if not (x0 <= lon <= x1 and y0 <= lat <= y1):
+            continue
+        for rings in polys:
+            if point_in_ring(lon, lat, rings[0]) and not any(point_in_ring(lon, lat, h) for h in rings[1:]):
+                return names
+    return ()
+
+def census_geocode(addresses):
+    """{address: (lon, lat) or None} from the Census batch geocoder. Raises on a failed request."""
+    out = {}
+    for i in range(0, len(addresses), CENSUS_BATCH_SIZE):
+        chunk = addresses[i:i + CENSUS_BATCH_SIZE]
+        lines = "\n".join(f'{k},"{a.replace(chr(34), "")}",Cincinnati,OH,' for k, a in enumerate(chunk))
+        r = requests.post(CENSUS_BATCH_URL, data={"benchmark": "Public_AR_Current"},
+                          files={"addressFile": ("addresses.csv", lines, "text/csv")}, timeout=600)
+        r.raise_for_status()
+        got = {}
+        for rec in csv.reader(r.text.splitlines()):
+            if len(rec) >= 6 and rec[2] == "Match" and rec[0].isdigit():
+                lon, lat = rec[5].split(",")
+                got[int(rec[0])] = (float(lon), float(lat))
+        for k, a in enumerate(chunk):
+            out[a] = got.get(k)
+        print(f"  geocoded {min(i + CENSUS_BATCH_SIZE, len(addresses))}/{len(addresses)} "
+              f"({sum(1 for k in range(len(chunk)) if k in got)} matched in this batch)")
+    return out
+
+def address_geography(rows):
+    """{matter_id: "Hood1|Hood2"} for rows whose title has an address inside the city.
+    Rows not in the result keep their AI tags."""
+    areas = load_boundaries()
+    cache = {}
+    if os.path.exists(GEOCODE_CACHE_FILE):
+        with open(GEOCODE_CACHE_FILE, encoding="utf-8") as f:
+            cache = json.load(f)
+    row_addrs = {}
+    for r in rows:
+        if r.get("matter_type") in NO_GEOCODE_TYPES:
+            continue
+        addrs = find_addresses(r.get("raw_title", ""))
+        if addrs:
+            row_addrs[r["matter_id"]] = (r, addrs)
+    todo = sorted({a for _, addrs in row_addrs.values() for a in addrs if a not in cache})
+    if todo:
+        print(f"Geocoding {len(todo)} new address(es)...")
+        try:
+            cache.update({a: (list(p) if p else None) for a, p in census_geocode(todo).items()})
+        except Exception as e:
+            print(f"  Census geocoder failed ({e}); those addresses wait for the next run.")
+        with open(GEOCODE_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(cache, f, indent=0, sort_keys=True)
+    out = {}
+    for mid, (r, addrs) in row_addrs.items():
+        ai = normalize_geography(r.get("geography", "")).split("|")
+        hoods = []
+        for a in addrs:
+            p = cache.get(a)
+            if not p:
+                continue
+            names = locate(p[0], p[1], areas)
+            if len(names) > 1:
+                # A shared SNA area: keep the AI's pick when it named one of the two.
+                names = tuple(n for n in names if n in ai) or names
+            for n in names:
+                if n not in hoods:
+                    hoods.append(n)
+        if hoods:
+            out[mid] = "|".join(hoods)
+    return out
+
+def build_json(csv_rows, legistar_links, vote_lookup=None, geo_by_address=None):
     if vote_lookup is None:
         vote_lookup = {}
+    geo_by_address = geo_by_address or {}
     by_fn = {}
     for r in csv_rows:
         by_fn.setdefault(r["file_number"], []).append(r)
@@ -550,7 +731,7 @@ def build_json(csv_rows, legistar_links, vote_lookup=None):
             "t":           r["clean_title"],
             "tp":          normalize_topics(r["topic_tags"]),
             "a":           r["action_type_ai"],
-            "g":           normalize_geography(r["geography"]),
+            "g":           geo_by_address.get(r["matter_id"]) or normalize_geography(r["geography"]),
             "d":           r["intro_date"][:10],
             "y":           r["intro_date"][:4],
             "rq":          rq,
@@ -995,7 +1176,13 @@ def main():
     with open(OUTPUT_CSV, newline="", encoding="utf-8") as f:
         final_rows = [r for r in csv.DictReader(f) if r.get("tag_status") == "success"]
 
-    json_records = build_json(final_rows, link_map, vote_lookup)
+    try:
+        geo_by_address = address_geography(final_rows)
+        print(f"Neighborhood from address map: {len(geo_by_address)} records.")
+    except Exception as e:
+        geo_by_address = {}
+        print(f"Address neighborhoods skipped ({e}); AI tags used.")
+    json_records = build_json(final_rows, link_map, vote_lookup, geo_by_address)
     # UTC, so the value is the same wherever the pipeline runs; the pages convert it to Eastern time.
     meta = {'_meta': True, 'last_updated': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}
     output = [meta] + json_records
@@ -1006,6 +1193,86 @@ def main():
     size = len(json.dumps(output, separators=(",", ":"))) / 1024
     print(f"Done. {OUTPUT_JSON} written ({size:.0f} KB)")
     print(f"\nNext step: upload {OUTPUT_JSON} to GitHub.")
+
+    # Meetings for agenda.html. A failure here leaves the previous agenda.json in place.
+    try:
+        write_agenda(final_rows)
+    except Exception as e:
+        print(f"Could not build {AGENDA_FILE} ({e}); keeping the existing file.")
+
+# ─── MEETINGS (agenda.json) ───────────────────────────────────────────────────
+
+def build_agenda(events, items_by_event, rows, today):
+    """Turn Legistar events and their event items into the agenda.json structure.
+    Only items tied to a matter are kept (roll call, prayer and similar rows are
+    dropped). The short title comes from the site's CSV when the matter is on
+    the site; otherwise the start of Legistar's title is used."""
+    by_id = {r["matter_id"]: r for r in rows}
+    meetings = []
+    for e in events:
+        date = (e.get("EventDate") or "")[:10]
+        items = []
+        for it in sorted(items_by_event.get(e.get("EventId"), []),
+                         key=lambda i: i.get("EventItemAgendaSequence") or 0):
+            mid = it.get("EventItemMatterId")
+            if not mid:
+                continue
+            mid = str(mid)
+            row = by_id.get(mid)
+            legistar_title = " ".join((it.get("EventItemTitle") or "").split())
+            items.append({
+                "n":   (it.get("EventItemAgendaNumber") or "").strip(),
+                "id":  mid,
+                "f":   it.get("EventItemMatterFile") or "",
+                "mt":  it.get("EventItemMatterType") or "",
+                "t":   row["clean_title"] if row and row.get("clean_title") else legistar_title[:160],
+                "url": legistar_permalink(mid),
+                "on_site": bool(row),
+                "action": it.get("EventItemActionName") or "",
+            })
+        meetings.append({
+            "id":       e.get("EventId"),
+            "body":     (e.get("EventBodyName") or "").strip(),
+            "date":     date,
+            "time":     (e.get("EventTime") or "").strip(),
+            "location": (e.get("EventLocation") or "").strip(),
+            "agenda_status": e.get("EventAgendaStatusName") or "",
+            "url":      e.get("EventInSiteURL") or "",
+            "upcoming": date >= today,
+            "items":    items,
+        })
+    meetings.sort(key=lambda m: (m["date"], clock_minutes(m["time"]), m["body"]))
+    return meetings
+
+def clock_minutes(t):
+    """Minutes after midnight for Legistar times such as "9:30 AM". Unparsed times sort last."""
+    m = re.match(r"^\s*(\d{1,2}):(\d{2})\s*([AaPp])\.?[Mm]\.?\s*$", t or "")
+    if not m:
+        return 24 * 60
+    h = int(m.group(1)) % 12 + (12 if m.group(3).lower() == "p" else 0)
+    return h * 60 + int(m.group(2))
+
+def write_agenda(rows):
+    from zoneinfo import ZoneInfo
+    today = datetime.now(ZoneInfo("America/New_York")).date()
+    start = (today - timedelta(days=AGENDA_PAST_DAYS)).strftime("%Y-%m-%dT00:00:00")
+    end = (today + timedelta(days=AGENDA_AHEAD_DAYS)).strftime("%Y-%m-%dT00:00:00")
+    url = (f"{API_BASE}/events?$filter=EventDate+ge+datetime'{start}'"
+           f"+and+EventDate+le+datetime'{end}'&$orderby=EventDate")
+    events = json.loads(http_get_text(url, {"Accept": "application/json"}))
+    items_by_event = {}
+    for e in events:
+        eid = e.get("EventId")
+        items_by_event[eid] = json.loads(http_get_text(f"{API_BASE}/events/{eid}/eventitems",
+                                                       {"Accept": "application/json"}))
+        time.sleep(DELAY_BETWEEN_ITEMS)
+    meetings = build_agenda(events, items_by_event, rows, today.isoformat())
+    out = {"generated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
+           "from": start[:10], "to": end[:10], "meetings": meetings}
+    with open(AGENDA_FILE, "w", encoding="utf-8") as f:
+        json.dump(out, f, separators=(",", ":"))
+    print(f"{AGENDA_FILE}: {len(meetings)} meetings, "
+          f"{sum(len(m['items']) for m in meetings)} items ({start[:10]} to {end[:10]}).")
 
 if __name__ == "__main__":
     main()
