@@ -2,6 +2,12 @@
 
 Notable changes to the Cincinnati City Council transparency site, most recent first. Each entry names the files touched and the live GitHub commit.
 
+## 2026-10-16 — Cancelled meetings marked on the Meetings page
+
+**Meeting notes (`update_pipeline.py`, `agenda.html`).** Legistar records cancellations in the meeting's comment field ("NOTICE OF CANCELLATION", with variants such as "CANCELLATION" and "Cancelled"); the same field holds notes such as "SPECIAL MEETING", "PUBLIC HEARING" and "Rescheduled Meeting". The pipeline now stores this as `comment` on each meeting; year files written before the change got it from one Legistar events request per year, without re-reading items. The page marks a meeting whose comment contains "cancel" with a red Cancelled label, strikes through its date and body, and shows "Meeting cancelled."; other notes show as a grey label. Past meetings with no items now read "No agenda items in Legistar." instead of "No agenda items posted yet." Run #83 ([1c1cb2f](https://github.com/BenKelly97/cincinnati-council/commit/1c1cb2f1a34db11150c4144cc5127985acf5be46)): 214 cancelled meetings marked (2020 40, 2021 44, 2022 22, 2023 32, 2024 28, 2025 34, 2026 14). Legistar has no comments on 2018 and 2019 meetings, so cancellations in those years are not marked.
+
+Files: `update_pipeline.py`, `agenda.html`. Commits: [6439a30](https://github.com/BenKelly97/cincinnati-council/commit/6439a30522616a2070bbdaee84f2d0ffcba2888c) (`update_pipeline.py`), [f303503](https://github.com/BenKelly97/cincinnati-council/commit/f303503b2ccdbc8360ba5b55f06cd43cc93e23f2) (`agenda.html`).
+
 ## 2026-10-16 — Meetings archive since 2018
 
 **Meetings by year (`update_pipeline.py`, `agenda.html`, `.github/workflows/weekly_update.yml`).** Meetings are now kept in one file per year, `agenda_2018.json` through the current year, with `agenda_index.json` listing the years and counts. A missing year file is read from Legistar in full once (one-time backfill); after that each run re-reads only meetings from 45 days back to 30 days ahead, because actions are posted after a meeting. `agenda.json` (the Upcoming/Recent view) is built from the same data. The Meetings page has a By year tab with a year picker and a search box over item titles and file numbers; the body filter applies to it. Items not on the site are labeled "Not on this site". Measured before the change: 2025 has 189 meetings and 3,204 items.
