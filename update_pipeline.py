@@ -1279,9 +1279,26 @@ def fetch_meetings(start, end):
             "location": (e.get("EventLocation") or "").strip(),
             "agenda_status": e.get("EventAgendaStatusName") or "",
             "url":      e.get("EventInSiteURL") or "",
+            "comment":  event_comment(e),
             "items":    kept,
         })
     return meetings
+
+def event_comment(e):
+    """Legistar's note on a meeting: "NOTICE OF CANCELLATION", "SPECIAL MEETING", etc."""
+    return " ".join((e.get("EventComment") or "").split())
+
+def fill_comments(year, meetings):
+    """Year files written before 2026-10-16 have no comment field; read it from
+    Legistar's event list for that year (one request) instead of re-reading items."""
+    if all("comment" in m for m in meetings):
+        return
+    url = (f"{API_BASE}/events?$filter=EventDate+ge+datetime'{year}-01-01T00:00:00'"
+           f"+and+EventDate+lt+datetime'{year + 1}-01-01T00:00:00'&$select=EventId,EventComment")
+    by_eid = {e.get("EventId"): event_comment(e)
+              for e in json.loads(http_get_text(url, {"Accept": "application/json"}))}
+    for m in meetings:
+        m["comment"] = by_eid.get(m["id"], "")
 
 def title_items(meetings, by_id):
     """Set t, on_site and url on each item. t is the site's short title when the
@@ -1312,6 +1329,10 @@ def write_agenda(rows):
         if os.path.exists(path):
             with open(path, encoding="utf-8") as f:
                 years[y] = json.load(f)["meetings"]
+            try:
+                fill_comments(y, years[y])
+            except Exception as e:
+                print(f"Meetings {y}: could not read meeting notes ({e}); retried next run.")
     # One-time backfill of missing years. A year that fails is retried next run.
     for y in range(AGENDA_ARCHIVE_START_YEAR, today.year + 1):
         if y in years:
