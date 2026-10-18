@@ -126,7 +126,7 @@ h1{font-size:20px;font-weight:600;letter-spacing:-0.01em;margin-bottom:0.25rem}
       </div>
       <select id="year-select" class="hidden" onchange="loadYear()" aria-label="Year"></select>
       <select id="body-select" onchange="render()" aria-label="Meeting body"><option value="">All bodies</option></select>
-      <input id="item-search" class="hidden" type="search" placeholder="Search items or file number" oninput="render()" aria-label="Search items">
+      <input id="item-search" class="hidden" type="search" placeholder="Search title, file number or neighborhood" oninput="render()" aria-label="Search items">
       <span class="count" id="count"></span>
     </div>
     <div id="list"><div class="loading">Loading meetings…</div></div>
@@ -138,6 +138,7 @@ let DATA = null;
 let view = 'up';
 const YEARS = {};          // year -> meetings, loaded on demand
 let YEAR_DATA = null;
+let ALL_YEARS = [];
 const SHOW_FIRST = 8;
 
 function esc(s) {
@@ -164,7 +165,13 @@ function statusBadge(s) {
   return `<span class="badge ${cls}">Agenda: ${esc(s)}</span>`;
 }
 function matches(it, q) {
-  return !q || (it.t || '').toLowerCase().includes(q) || (it.f || '').includes(q);
+  return !q || (it.t || '').toLowerCase().includes(q) || (it.f || '').includes(q)
+    || (it.g || '').toLowerCase().includes(q);
+}
+// Legistar item numbers sometimes carry typing errors ("f41.", ",6.", "`1.").
+function cleanNum(n) {
+  const m = String(n || '').match(/\d+[A-Za-z]?/);
+  return m ? m[0] + '.' : String(n || '').trim();
 }
 // Legistar lists each action on a matter as its own agenda line (suspension of the
 // three readings, emergency clause, passage). Show one line per matter with its
@@ -183,11 +190,12 @@ function groupItems(m) {
   if (m._groups) return m._groups;
   const order = [], by = {}, pos = {};
   (m.items || []).forEach((it, k) => {
-    if (!by[it.id]) { by[it.id] = { ...it, steps: [] }; order.push(it.id); pos[it.id] = k; }
-    if (it.action) by[it.id].steps.push(it.action);
+    if (!by[it.id]) { by[it.id] = { ...it, n: '', steps: [] }; order.push(it.id); pos[it.id] = k; }
+    if (it.action) by[it.id].steps.push({ a: it.action, pf: it.pf || '' });
+    if (it.votes && !by[it.id].votes) by[it.id].votes = it.votes;
     // Council agendas list the vote lines before the numbered agenda line; place the
     // matter where its numbered line is.
-    if (!by[it.id].n && it.n) { by[it.id].n = it.n; pos[it.id] = k; }
+    if (!by[it.id].n && it.n) { by[it.id].n = cleanNum(it.n); pos[it.id] = k; }
   });
   order.sort((a, b) => pos[a] - pos[b]);
   const numbered = order.every(id => by[id].n);
@@ -196,20 +204,30 @@ function groupItems(m) {
     order.sort((a, b) => parseFloat(by[a].n) - parseFloat(by[b].n) || pos[a] - pos[b]);
   m._groups = order.map((id, i) => {
     const g = by[id];
-    let best = '', rank = -1;
-    g.steps.forEach(a => { const r = actionRank(a); if (r >= rank) { best = a; rank = r; } });
-    const failed = g.steps.filter(a => PROCEDURAL.test(a) && /fail|lost|denied/i.test(a) && a !== best);
-    g.action = [best, ...failed].filter(Boolean).join('; ');
+    let best = null, rank = -1;
+    g.steps.forEach(st => { const r = actionRank(st.a); if (r >= rank) { best = st; rank = r; } });
+    // Legistar's pass/fail flag (pf) where present; older data falls back to the wording.
+    const failedStep = st => st.pf === 'Fail' || /fail|lost|denied/i.test(st.a);
+    const label = st => st.a + (st.pf === 'Fail' && !/fail|lost|denied/i.test(st.a) ? ' (failed)' : '');
+    const failed = g.steps.filter(st => st !== best && failedStep(st));
+    g.action = [best, ...failed].filter(Boolean).map(label).join('; ');
     g.n = numbered ? g.n : (i + 1) + '.';
     return g;
   });
   return m._groups;
 }
+// votes: [yes, no, abstain, absent, excused] from the site's roll call record.
+function voteText(v) {
+  if (!v) return '';
+  const extra = [[v[2], 'abstain'], [v[3], 'absent'], [v[4], 'excused']]
+    .filter(x => x[0]).map(x => x[0] + ' ' + x[1]);
+  return `Vote ${v[0]}\u2013${v[1]}` + (extra.length ? ` (${extra.join(', ')})` : '');
+}
 function itemHtml(it, past) {
   const title = it.on_site ? esc(it.t) : `<span class="i-raw">${esc(it.t)}</span>`;
   const link = it.url ? `<a href="${esc(it.url)}" target="_blank" rel="noopener">${title}</a>` : title;
   const sub = [it.mt, it.f ? 'File ' + it.f : '', past && it.action ? 'Action: ' + it.action : '',
-    it.on_site ? '' : 'Not on this site'].filter(Boolean).map(esc).join(' · ');
+    past ? voteText(it.votes) : '', it.on_site ? '' : 'Not on this site'].filter(Boolean).map(esc).join(' · ');
   return `<li><span class="i-n">${esc(it.n)}</span><span>${link}</span><span class="i-sub">${sub}</span></li>`;
 }
 function isCancelled(m) { return /cancel/i.test(m.comment || ''); }
@@ -240,6 +258,11 @@ function render() {
   if (view === 'year') {
     if (!YEAR_DATA) { document.getElementById('list').innerHTML = '<div class="loading">Loading meetings…</div>'; return; }
     const q = document.getElementById('item-search').value.trim().toLowerCase();
+    if (document.getElementById('year-select').value === 'all' && !q) {
+      document.getElementById('count').textContent = '';
+      document.getElementById('list').innerHTML = '<div class="empty">Type a title, file number or neighborhood to search every year.</div>';
+      return;
+    }
     ms = YEAR_DATA.slice().reverse();
     if (q) ms = ms.filter(m => groupItems(m).some(it => matches(it, q)));
   } else {
@@ -277,13 +300,21 @@ async function loadYear() {
   const y = document.getElementById('year-select').value;
   if (!y) return;
   YEAR_DATA = null; render();
-  try {
-    if (!YEARS[y]) {
-      const r = await fetch(`agenda_${y}.json`, { cache: 'no-store' });
+  const get = async yr => {
+    if (!YEARS[yr]) {
+      const r = await fetch(`agenda_${yr}.json`, { cache: 'no-store' });
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      YEARS[y] = (await r.json()).meetings;
+      YEARS[yr] = (await r.json()).meetings;
     }
-    YEAR_DATA = YEARS[y];
+    return YEARS[yr];
+  };
+  try {
+    if (y === 'all') {                         // every year, for searching across years
+      const all = await Promise.all(ALL_YEARS.map(get));
+      YEAR_DATA = [].concat(...all.slice().reverse());
+    } else {
+      YEAR_DATA = await get(y);
+    }
     setBodies(YEAR_DATA);
     render();
   } catch (e) {
@@ -296,7 +327,9 @@ async function loadIndex() {
     if (!r.ok) throw new Error();
     const idx = await r.json();
     const ys = idx.years.filter(x => x.meetings).map(x => x.year).sort((a, b) => b - a);
-    document.getElementById('year-select').innerHTML = ys.map(y => `<option value="${y}">${y}</option>`).join('');
+    ALL_YEARS = ys;
+    document.getElementById('year-select').innerHTML = ys.map(y => `<option value="${y}">${y}</option>`).join('')
+      + `<option value="all">All years (${ys[ys.length - 1]}\u2013${ys[0]})</option>`;
   } catch (e) {
     document.getElementById('tab-year').classList.add('hidden');   // archive not built yet
   }
