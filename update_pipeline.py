@@ -1314,7 +1314,10 @@ def title_items(meetings, by_id, geo_by_address, vote_lookup):
                 it.pop("g", None)
             it["url"] = legistar_permalink(it["id"])
             v = vote_lookup.get(it["f"]) if it.get("f") else None
-            if v and v.get("meeting_date") == m["date"] and (not v.get("matter_id") or v["matter_id"] == it["id"]):
+            # Roll calls in votes_api.json are from full Council meetings only; a committee
+            # meeting held the same day must not show them.
+            if (v and m["body"] == "Cincinnati City Council" and v.get("meeting_date") == m["date"]
+                    and (not v.get("matter_id") or v["matter_id"] == it["id"])):
                 it["votes"] = vote_counts(v)
             else:
                 it.pop("votes", None)
