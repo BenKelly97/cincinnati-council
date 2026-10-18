@@ -60,6 +60,7 @@ AGENDA_AHEAD_DAYS = 30                     # and this many days ahead
 AGENDA_RECHECK_DAYS = 45                   # meetings re-read from Legistar on every run
 AGENDA_ARCHIVE_START_YEAR = 2018           # first year kept in agenda_YYYY.json
 AGENDA_INDEX_FILE = "agenda_index.json"    # years and counts, for agenda.html
+AGENDA_FORMAT = 2                          # year files below this are re-read from Legistar
 
 # Cutoff: pull items introduced in the last N days
 LOOKBACK_DAYS = 14
@@ -1228,7 +1229,7 @@ def main():
 
     # Meetings for agenda.html. A failure here leaves the previous agenda.json in place.
     try:
-        write_agenda(final_rows)
+        write_agenda(final_rows, vote_lookup, geo_by_address)
     except Exception as e:
         print(f"Could not build {AGENDA_FILE} ({e}); keeping the existing file.")
 
@@ -1270,6 +1271,7 @@ def fetch_meetings(start, end):
                 "mt":     it.get("EventItemMatterType") or "",
                 "lt":     " ".join((it.get("EventItemTitle") or "").split())[:160],
                 "action": it.get("EventItemActionName") or "",
+                "pf":     it.get("EventItemPassedFlagName") or "",   # "Pass", "Fail" or ""
             })
         meetings.append({
             "id":       eid,
@@ -1288,21 +1290,16 @@ def event_comment(e):
     """Legistar's note on a meeting: "NOTICE OF CANCELLATION", "SPECIAL MEETING", etc."""
     return " ".join((e.get("EventComment") or "").split())
 
-def fill_comments(year, meetings):
-    """Year files written before 2026-10-16 have no comment field; read it from
-    Legistar's event list for that year (one request) instead of re-reading items."""
-    if all("comment" in m for m in meetings):
-        return
-    url = (f"{API_BASE}/events?$filter=EventDate+ge+datetime'{year}-01-01T00:00:00'"
-           f"+and+EventDate+lt+datetime'{year + 1}-01-01T00:00:00'&$select=EventId,EventComment")
-    by_eid = {e.get("EventId"): event_comment(e)
-              for e in json.loads(http_get_text(url, {"Accept": "application/json"}))}
-    for m in meetings:
-        m["comment"] = by_eid.get(m["id"], "")
+def vote_counts(v):
+    """[yes, no, abstain, absent, excused] from a votes_api.json record."""
+    return [len(v.get(k) or []) for k in
+            ("yes_votes", "no_votes", "abstain_votes", "absent_votes", "excused_votes")]
 
-def title_items(meetings, by_id):
-    """Set t, on_site and url on each item. t is the site's short title when the
-    matter is on the site, else the start of Legistar's title (kept in lt)."""
+def title_items(meetings, by_id, geo_by_address, vote_lookup):
+    """Set t, on_site, url, g and votes on each item. t is the site's short title when
+    the matter is on the site, else the start of Legistar's title (kept in lt). g is the
+    site's neighborhood value. votes is the roll call count from votes_api.json when
+    that vote was taken at this meeting (full Council only)."""
     for m in meetings:
         for it in m["items"]:
             row = by_id.get(it["id"])
@@ -1310,38 +1307,46 @@ def title_items(meetings, by_id):
                 it["t"] = row["clean_title"]
                 it["on_site"] = True
                 it.pop("lt", None)            # Legistar title not needed once on the site
+                it["g"] = geo_by_address.get(it["id"]) or normalize_geography(row.get("geography", ""))
             else:
                 it["t"] = it.get("lt") or it.get("t", "")
                 it["on_site"] = False
+                it.pop("g", None)
             it["url"] = legistar_permalink(it["id"])
+            v = vote_lookup.get(it["f"]) if it.get("f") else None
+            if v and v.get("meeting_date") == m["date"] and (not v.get("matter_id") or v["matter_id"] == it["id"]):
+                it["votes"] = vote_counts(v)
+            else:
+                it.pop("votes", None)
     meetings.sort(key=lambda m: (m["date"], clock_minutes(m["time"]), m["body"]))
 
 def agenda_year_file(year):
     return f"agenda_{year}.json"
 
-def write_agenda(rows):
+def write_agenda(rows, vote_lookup=None, geo_by_address=None):
     from zoneinfo import ZoneInfo
+    vote_lookup = vote_lookup or {}
+    geo_by_address = geo_by_address or {}
     today = datetime.now(ZoneInfo("America/New_York")).date()
     by_id = {r["matter_id"]: r for r in rows}
     years = {}
     for y in range(AGENDA_ARCHIVE_START_YEAR, today.year + 1):
         path = agenda_year_file(y)
+        old = None
         if os.path.exists(path):
             with open(path, encoding="utf-8") as f:
-                years[y] = json.load(f)["meetings"]
-            try:
-                fill_comments(y, years[y])
-            except Exception as e:
-                print(f"Meetings {y}: could not read meeting notes ({e}); retried next run.")
-    # One-time backfill of missing years. A year that fails is retried next run.
-    for y in range(AGENDA_ARCHIVE_START_YEAR, today.year + 1):
-        if y in years:
-            continue
+                old = json.load(f)
+            if old.get("format", 1) >= AGENDA_FORMAT:
+                years[y] = old["meetings"]
+                continue
+        # Missing or older-format year: read it in full. On failure keep the old file.
         try:
             years[y] = fetch_meetings(f"{y}-01-01", f"{y + 1}-01-01")
             print(f"Meetings {y}: read {len(years[y])} from Legistar (backfill).")
         except Exception as e:
             print(f"Meetings {y}: backfill failed ({e}); retried next run.")
+            if old:
+                years[y] = old["meetings"]
     # Re-read the recent and upcoming window and replace those meetings.
     w_start = (today - timedelta(days=AGENDA_RECHECK_DAYS)).isoformat()
     w_end = (today + timedelta(days=AGENDA_AHEAD_DAYS + 1)).isoformat()
@@ -1355,9 +1360,11 @@ def write_agenda(rows):
     gen = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
     index = []
     for y in sorted(years):
-        title_items(years[y], by_id)
+        title_items(years[y], by_id, geo_by_address, vote_lookup)
+        fmt = AGENDA_FORMAT if all("pf" in it for m in years[y] for it in m["items"]) else 1
         with open(agenda_year_file(y), "w", encoding="utf-8") as f:
-            json.dump({"year": y, "generated_utc": gen, "meetings": years[y]}, f, separators=(",", ":"))
+            json.dump({"year": y, "format": fmt, "generated_utc": gen, "meetings": years[y]},
+                      f, separators=(",", ":"))
         index.append({"year": y, "meetings": len(years[y]),
                       "items": sum(len(m["items"]) for m in years[y])})
     with open(AGENDA_INDEX_FILE, "w", encoding="utf-8") as f:
