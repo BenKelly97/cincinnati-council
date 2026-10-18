@@ -181,13 +181,19 @@ function actionRank(a) {
 }
 function groupItems(m) {
   if (m._groups) return m._groups;
-  const order = [], by = {};
-  (m.items || []).forEach(it => {
-    if (!by[it.id]) { by[it.id] = { ...it, steps: [] }; order.push(it.id); }
+  const order = [], by = {}, pos = {};
+  (m.items || []).forEach((it, k) => {
+    if (!by[it.id]) { by[it.id] = { ...it, steps: [] }; order.push(it.id); pos[it.id] = k; }
     if (it.action) by[it.id].steps.push(it.action);
-    if (!by[it.id].n && it.n) by[it.id].n = it.n;
+    // Council agendas list the vote lines before the numbered agenda line; place the
+    // matter where its numbered line is.
+    if (!by[it.id].n && it.n) { by[it.id].n = it.n; pos[it.id] = k; }
   });
+  order.sort((a, b) => pos[a] - pos[b]);
   const numbered = order.every(id => by[id].n);
+  // Legistar sometimes lists an item out of number order (taken up early); show agenda order.
+  if (numbered && order.every(id => !isNaN(parseFloat(by[id].n))))
+    order.sort((a, b) => parseFloat(by[a].n) - parseFloat(by[b].n) || pos[a] - pos[b]);
   m._groups = order.map((id, i) => {
     const g = by[id];
     let best = '', rank = -1;
