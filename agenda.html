@@ -166,6 +166,39 @@ function statusBadge(s) {
 function matches(it, q) {
   return !q || (it.t || '').toLowerCase().includes(q) || (it.f || '').includes(q);
 }
+// Legistar lists each action on a matter as its own agenda line (suspension of the
+// three readings, emergency clause, passage). Show one line per matter with its
+// final action; a procedural step that failed is shown with it.
+const PROCEDURAL = /suspension|emergency clause|immediate consideration|motion to consider|^amended$/i;
+function actionRank(a) {
+  if (!a || PROCEDURAL.test(a)) return 0;
+  if (/veto/i.test(a)) return 5;
+  if (/fail|lost|denied|postpone/i.test(a)) return 4;
+  if (/recommend|held|refer/i.test(a)) return 1;
+  if (/emergency|as amended/i.test(a)) return 3;
+  if (/pass|adopt|confirm|file|approve/i.test(a)) return 2;
+  return 1;                                   // any other action
+}
+function groupItems(m) {
+  if (m._groups) return m._groups;
+  const order = [], by = {};
+  (m.items || []).forEach(it => {
+    if (!by[it.id]) { by[it.id] = { ...it, steps: [] }; order.push(it.id); }
+    if (it.action) by[it.id].steps.push(it.action);
+    if (!by[it.id].n && it.n) by[it.id].n = it.n;
+  });
+  const numbered = order.every(id => by[id].n);
+  m._groups = order.map((id, i) => {
+    const g = by[id];
+    let best = '', rank = -1;
+    g.steps.forEach(a => { const r = actionRank(a); if (r >= rank) { best = a; rank = r; } });
+    const failed = g.steps.filter(a => PROCEDURAL.test(a) && /fail|lost|denied/i.test(a) && a !== best);
+    g.action = [best, ...failed].filter(Boolean).join('; ');
+    g.n = numbered ? g.n : (i + 1) + '.';
+    return g;
+  });
+  return m._groups;
+}
 function itemHtml(it, past) {
   const title = it.on_site ? esc(it.t) : `<span class="i-raw">${esc(it.t)}</span>`;
   const link = it.url ? `<a href="${esc(it.url)}" target="_blank" rel="noopener">${title}</a>` : title;
@@ -177,7 +210,7 @@ function isCancelled(m) { return /cancel/i.test(m.comment || ''); }
 function meetingHtml(m, idx) {
   const past = view !== 'up';
   const q = view === 'year' ? document.getElementById('item-search').value.trim().toLowerCase() : '';
-  const items = (m.items || []).filter(it => matches(it, q));
+  const items = groupItems(m).filter(it => matches(it, q));
   const shown = m._open ? items : items.slice(0, SHOW_FIRST);
   const list = items.length
     ? `<ul class="items">${shown.map(it => itemHtml(it, past)).join('')}</ul>` +
@@ -202,7 +235,7 @@ function render() {
     if (!YEAR_DATA) { document.getElementById('list').innerHTML = '<div class="loading">Loading meetings…</div>'; return; }
     const q = document.getElementById('item-search').value.trim().toLowerCase();
     ms = YEAR_DATA.slice().reverse();
-    if (q) ms = ms.filter(m => (m.items || []).some(it => matches(it, q)));
+    if (q) ms = ms.filter(m => groupItems(m).some(it => matches(it, q)));
   } else {
     ms = DATA.meetings.filter(m => (view === 'up' ? m.date >= today : m.date < today));
     if (view === 'past') ms = ms.slice().reverse();
