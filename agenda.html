@@ -92,6 +92,7 @@ h1{font-size:20px;font-weight:600;letter-spacing:-0.01em;margin-bottom:0.25rem}
 .items li:last-child{border-bottom:none}
 .i-n{color:var(--text3);font-size:13px}
 .i-sub{grid-column:2;font-size:12px;color:var(--text3)}
+.i-sm{grid-column:2;font-size:13px;color:var(--text2);line-height:1.4}
 .i-raw{color:var(--text2)}
 .more{margin-top:6px;background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;padding:0}
 .no-items{font-size:13px;color:var(--text3);margin-top:0.5rem}
@@ -228,7 +229,8 @@ function itemHtml(it, past) {
   const link = it.url ? `<a href="${esc(it.url)}" target="_blank" rel="noopener">${title}</a>` : title;
   const sub = [it.mt, it.f ? 'File ' + it.f : '', past && it.action ? 'Action: ' + it.action : '',
     past ? voteText(it.votes) : '', it.on_site ? '' : 'Not on this site'].filter(Boolean).map(esc).join(' · ');
-  return `<li><span class="i-n">${esc(it.n)}</span><span>${link}</span><span class="i-sub">${sub}</span></li>`;
+  const sm = it.sm ? `<span class="i-sm">${esc(it.sm)}</span>` : '';
+  return `<li><span class="i-n">${esc(it.n)}</span><span>${link}</span>${sm}<span class="i-sub">${sub}</span></li>`;
 }
 function isCancelled(m) { return /cancel/i.test(m.comment || ''); }
 // A past meeting whose items have no action: the Clerk has not entered the results
