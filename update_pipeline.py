@@ -60,6 +60,7 @@ AGENDA_AHEAD_DAYS = 30                     # and this many days ahead
 AGENDA_RECHECK_DAYS = 45                   # meetings re-read from Legistar on every run
 AGENDA_ARCHIVE_START_YEAR = 2018           # first year kept in agenda_YYYY.json
 AGENDA_INDEX_FILE = "agenda_index.json"    # years and counts, for agenda.html
+AGENDA_PENDING_DAYS = 365                  # past meetings without actions re-read this far back
 AGENDA_FORMAT = 2                          # year files below this are re-read from Legistar
 
 # Cutoff: pull items introduced in the last N days
@@ -1257,22 +1258,6 @@ def fetch_meetings(start, end):
     meetings = []
     for e in events:
         eid = e.get("EventId")
-        items = json.loads(http_get_text(f"{API_BASE}/events/{eid}/eventitems",
-                                         {"Accept": "application/json"}))
-        time.sleep(DELAY_BETWEEN_ITEMS)
-        kept = []
-        for it in sorted(items, key=lambda i: i.get("EventItemAgendaSequence") or 0):
-            if not it.get("EventItemMatterId"):
-                continue                      # roll call, prayer and other lines with no matter
-            kept.append({
-                "n":      (it.get("EventItemAgendaNumber") or "").strip(),
-                "id":     str(it["EventItemMatterId"]),
-                "f":      it.get("EventItemMatterFile") or "",
-                "mt":     it.get("EventItemMatterType") or "",
-                "lt":     " ".join((it.get("EventItemTitle") or "").split())[:160],
-                "action": it.get("EventItemActionName") or "",
-                "pf":     it.get("EventItemPassedFlagName") or "",   # "Pass", "Fail" or ""
-            })
         meetings.append({
             "id":       eid,
             "body":     (e.get("EventBodyName") or "").strip(),
@@ -1282,9 +1267,30 @@ def fetch_meetings(start, end):
             "agenda_status": e.get("EventAgendaStatusName") or "",
             "url":      e.get("EventInSiteURL") or "",
             "comment":  event_comment(e),
-            "items":    kept,
+            "items":    fetch_items(eid),
         })
     return meetings
+
+def fetch_items(eid):
+    """Matter items of one Legistar meeting, in agenda order. Lines with no matter
+    (roll call, prayer, minutes) are left out."""
+    items = json.loads(http_get_text(f"{API_BASE}/events/{eid}/eventitems",
+                                     {"Accept": "application/json"}))
+    time.sleep(DELAY_BETWEEN_ITEMS)
+    kept = []
+    for it in sorted(items, key=lambda i: i.get("EventItemAgendaSequence") or 0):
+        if not it.get("EventItemMatterId"):
+            continue
+        kept.append({
+            "n":      (it.get("EventItemAgendaNumber") or "").strip(),
+            "id":     str(it["EventItemMatterId"]),
+            "f":      it.get("EventItemMatterFile") or "",
+            "mt":     it.get("EventItemMatterType") or "",
+            "lt":     " ".join((it.get("EventItemTitle") or "").split())[:160],
+            "action": it.get("EventItemActionName") or "",
+            "pf":     it.get("EventItemPassedFlagName") or "",   # "Pass", "Fail" or ""
+        })
+    return kept
 
 def event_comment(e):
     """Legistar's note on a meeting: "NOTICE OF CANCELLATION", "SPECIAL MEETING", etc."""
@@ -1360,6 +1366,23 @@ def write_agenda(rows, vote_lookup=None, geo_by_address=None):
     for y in list(years):
         keep = [m for m in years[y] if not (w_start <= m["date"] < w_end)]
         years[y] = keep + [m for m in fresh if m["date"][:4] == str(y)]
+    # Past meetings (within AGENDA_PENDING_DAYS) whose items have no recorded action:
+    # the Clerk had not entered the actions when the meeting was last read. Re-read
+    # their items each run until actions appear.
+    p_start = (today - timedelta(days=AGENDA_PENDING_DAYS)).isoformat()
+    pending = [m for y in years for m in years[y]
+               if p_start <= m["date"] < w_start and m["items"]
+               and not re.search("cancel", m.get("comment", ""), re.I)
+               and not any(it.get("action") for it in m["items"])]
+    filled = 0
+    for m in pending:
+        try:
+            m["items"] = fetch_items(m["id"])
+            filled += any(it.get("action") for it in m["items"])
+        except Exception as e:
+            print(f"Meeting {m['id']} ({m['date']}): could not re-read items ({e}).")
+    if pending:
+        print(f"Re-read {len(pending)} past meeting(s) with no recorded actions; {filled} now have actions.")
     gen = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
     index = []
     for y in sorted(years):
