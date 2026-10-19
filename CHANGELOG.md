@@ -2,6 +2,14 @@
 
 Notable changes to the Cincinnati City Council transparency site, most recent first. Each entry names the files touched and the live GitHub commit.
 
+## 2026-10-18 — Meetings page: past meetings with no recorded actions
+
+**Agenda data (`update_pipeline.py`).** Each run now also re-reads, from Legistar, every past meeting from the last 365 days that is outside the 45-day refresh window, is not cancelled, has agenda items and has no recorded actions. Legistar enters actions when minutes are finalized, often weeks after the meeting; before this change a meeting older than 45 days kept whatever state it had when it left the window. Run #88 ([86618a8](https://github.com/BenKelly97/cincinnati-council/commit/86618a8eb4ab9a57d373634d0b33ae1662d631ed)) re-read 3 such meetings (2026-01-26 Budget, Finance & Governance; 2026-01-27 Public Safety & Quality of Life; 2026-02-18 Housing & Growth); none had actions yet. The four most recent Budget, Finance & Governance meetings (9/14, 9/21, 9/28, 10/12) are inside the 45-day window and were also re-read; none has actions in Legistar.
+
+**Meetings page (`agenda.html`).** A past, non-cancelled meeting with agenda items and no recorded actions shows "No actions recorded in Legistar yet." under its date line. Checked live: the label appears on the 2026-10-12 Budget, Finance & Governance meeting in the Recent tab.
+
+Files: `update_pipeline.py`, `agenda.html`. Commits: [8ef4634](https://github.com/BenKelly97/cincinnati-council/commit/8ef46343ac81f833403e1f75566b7bcf1aa57819) (`update_pipeline.py`), [e9a78e4](https://github.com/BenKelly97/cincinnati-council/commit/e9a78e4fd213a08068c89e6fac77603af52f0711) (`agenda.html`).
+
 ## 2026-10-18 — Meetings page: vote counts, pass/fail from Legistar, search across all years
 
 **Agenda data (`update_pipeline.py`).** Year files now carry, per agenda line, Legistar's pass/fail flag (`pf`: "Pass", "Fail" or blank), the roll call count from `votes_api.json` (`votes`: yes, no, abstain, absent, excused) when that vote was taken at this full Council meeting, and the site's neighborhood value (`g`) for matters on the site. Legistar's tally field is empty for Cincinnati, so counts come from the site's own vote file; committee meetings show no count. Year files carry `format: 2`; older files were re-read in full once by run #86 ([d4412d8](https://github.com/BenKelly97/cincinnati-council/commit/d4412d8805f3f733660d7ab1a7d32004a73afec5), about 17 minutes). The first version also attached Council roll calls to a committee meeting held the same day (for example Budget, Finance & Governance on 2021-02-01); fixed in 8d8c59b and rebuilt by run #87 ([3e84eb5](https://github.com/BenKelly97/cincinnati-council/commit/3e84eb57aaa0d59f773b068f665fbdc876c7cdba)). Legistar has no pass/fail flags on 2018 and 2019 lines and the site has no roll calls before June 2020.
