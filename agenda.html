@@ -231,6 +231,13 @@ function itemHtml(it, past) {
   return `<li><span class="i-n">${esc(it.n)}</span><span>${link}</span><span class="i-sub">${sub}</span></li>`;
 }
 function isCancelled(m) { return /cancel/i.test(m.comment || ''); }
+// A past meeting whose items have no action: the Clerk has not entered the results
+// in Legistar yet. The daily update keeps checking these meetings for a year.
+function pendingNote(m) {
+  const pending = m.date < todayET() && !isCancelled(m) && (m.items || []).length
+    && !(m.items || []).some(it => it.action);
+  return pending ? '<div class="no-items">No actions recorded in Legistar yet.</div>' : '';
+}
 function meetingHtml(m, idx) {
   const past = view !== 'up';
   const q = view === 'year' ? document.getElementById('item-search').value.trim().toLowerCase() : '';
@@ -246,7 +253,7 @@ function meetingHtml(m, idx) {
     : (m.comment ? `<span class="badge note">${esc(m.comment)}</span>` : '');
   return `<div class="meeting${isCancelled(m) ? ' cancelled' : ''}">
     <div class="m-head"><span class="m-date">${fmtDate(m.date)}</span><span class="m-body">${esc(m.body)}</span>${note}${isCancelled(m) ? '' : statusBadge(m.agenda_status)}</div>
-    <div class="m-meta">${meta}${link}</div>
+    <div class="m-meta">${meta}${link}</div>${pendingNote(m)}
     ${list}
   </div>`;
 }
