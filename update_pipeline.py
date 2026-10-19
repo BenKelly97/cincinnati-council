@@ -1302,10 +1302,11 @@ def vote_counts(v):
             ("yes_votes", "no_votes", "abstain_votes", "absent_votes", "excused_votes")]
 
 def title_items(meetings, by_id, geo_by_address, vote_lookup):
-    """Set t, on_site, url, g and votes on each item. t is the site's short title when
-    the matter is on the site, else the start of Legistar's title (kept in lt). g is the
-    site's neighborhood value. votes is the roll call count from votes_api.json when
-    that vote was taken at this meeting (full Council only)."""
+    """Set t, sm, on_site, url, g and votes on each item. t is the site's short title when
+    the matter is on the site, else the start of Legistar's title (kept in lt). sm is the
+    site's one-line summary (on-site matters with a summary only). g is the site's
+    neighborhood value. votes is the roll call count from votes_api.json when that vote
+    was taken at this meeting (full Council only)."""
     for m in meetings:
         for it in m["items"]:
             row = by_id.get(it["id"])
@@ -1314,10 +1315,16 @@ def title_items(meetings, by_id, geo_by_address, vote_lookup):
                 it["on_site"] = True
                 it.pop("lt", None)            # Legistar title not needed once on the site
                 it["g"] = geo_by_address.get(it["id"]) or normalize_geography(row.get("geography", ""))
+                sm = (row.get("summary") or "").strip()
+                if sm:
+                    it["sm"] = sm
+                else:
+                    it.pop("sm", None)
             else:
                 it["t"] = it.get("lt") or it.get("t", "")
                 it["on_site"] = False
                 it.pop("g", None)
+                it.pop("sm", None)
             it["url"] = legistar_permalink(it["id"])
             v = vote_lookup.get(it["f"]) if it.get("f") else None
             # Roll calls in votes_api.json are from full Council meetings only; a committee
