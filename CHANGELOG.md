@@ -2,6 +2,14 @@
 
 Notable changes to the Cincinnati City Council transparency site, most recent first. Each entry names the files touched and the live GitHub commit.
 
+## 2026-10-19 — Meetings page: item descriptions
+
+**Agenda data (`update_pipeline.py`).** Each agenda item on the site now carries the matter's one-line summary from the site's data (`sm`), the same summary shown on All Legislation. It is set for every year on every run from the CSV; no Legistar re-read. Items not on the site, and on-site matters without a summary (mostly statements and registrations), have none. Run #90 ([4ab4b5f](https://github.com/BenKelly97/cincinnati-council/commit/4ab4b5f)) filled 23,748 of 24,021 items across 2018–2026. Year files grew about 30% (2026: 0.9 MB to 1.2 MB).
+
+**Meetings page (`agenda.html`).** The description shows under the item title, above the type, file number and action line. Checked live: the 2026-10-13 Housing & Growth meeting shows a description on all 5 items.
+
+Files: `update_pipeline.py`, `agenda.html`. Commits: [30cdabf](https://github.com/BenKelly97/cincinnati-council/commit/30cdabf9bcddc4da5090a5bbcae17560a617bd0d) (`update_pipeline.py`), [a94d994](https://github.com/BenKelly97/cincinnati-council/commit/a94d994041cac9d421d2695e6d31f6cb32917e49) (`agenda.html`).
+
 ## 2026-10-18 — Meetings page: past meetings with no recorded actions
 
 **Agenda data (`update_pipeline.py`).** Each run now also re-reads, from Legistar, every past meeting from the last 365 days that is outside the 45-day refresh window, is not cancelled, has agenda items and has no recorded actions. Legistar enters actions when minutes are finalized, often weeks after the meeting; before this change a meeting older than 45 days kept whatever state it had when it left the window. Run #88 ([86618a8](https://github.com/BenKelly97/cincinnati-council/commit/86618a8eb4ab9a57d373634d0b33ae1662d631ed)) re-read 3 such meetings (2026-01-26 Budget, Finance & Governance; 2026-01-27 Public Safety & Quality of Life; 2026-02-18 Housing & Growth); none had actions yet. The four most recent Budget, Finance & Governance meetings (9/14, 9/21, 9/28, 10/12) are inside the 45-day window and were also re-read; none has actions in Legistar.
