@@ -1142,6 +1142,29 @@ def main():
     except:
         print(f"No {VOTES_FILE} found — votes will not be included")
 
+    # Appointment and Reappointment wording from the Legistar title. Runs before
+    # the manual overrides below, so a later manual fix wins and is kept.
+    try:
+        with open(OUTPUT_CSV, newline="", encoding="utf-8") as f:
+            appt_rows = list(csv.DictReader(f))
+        reworded = 0
+        for row in appt_rows:
+            if (row.get("matter_type") in ("Appointment", "Reappointment")
+                    and APPOINTMENT_MARK not in (row.get("notes") or "")):
+                res = appointment_text(row["matter_type"], row.get("raw_title", ""))
+                if res:
+                    row["clean_title"], row["summary"] = res
+                    row["notes"] = ((row.get("notes") or "") + " " + APPOINTMENT_MARK).strip()
+                    reworded += 1
+        if reworded:
+            with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=FIELDNAMES, extrasaction="ignore")
+                writer.writeheader()
+                writer.writerows(appt_rows)
+        print(f"Appointment wording applied to {reworded} row(s).")
+    except Exception as e:
+        print(f"Appointment wording skipped ({e}).")
+
     # Apply any pending manual title overrides (queued by the suggestion
     # review page) into the CSV so the fix survives this rebuild instead of
     # only living in council_data.json until the next run overwrites it.
@@ -1601,6 +1624,78 @@ def write_agents(rows):
         json.dump(out, f, separators=(",", ":"), ensure_ascii=False)
     print(f"{AGENTS_FILE}: {len(orgs)} organizations from {len(regs)} registration filings; skipped "
           + ", ".join(f"{k} {v}" for k, v in sorted(skipped.items())))
+
+# ─── APPOINTMENT WORDING ──────────────────────────────────────────────────────
+# Appointment and Reappointment titles and descriptions are built from the
+# Legistar title in one form: "Appoint <name> to the <board>" and "<Mayor or
+# City Manager> appoints <name> to the <board> for <term>, subject to Council's
+# advice and consent." Applied once per row (marked in notes); titles that do
+# not follow a recognized form keep the AI wording.
+
+APPOINTMENT_MARK = "[appointment wording]"
+# Where the board name ends: a term, a seat or role description, or the end of the sentence.
+_APPT_BODY_END = (r"(?=,?\s+(?:to\s+fill|to\s+complete|under\s+the|pursuant|representing|in\s+the\s+seat"
+             r"|in\s+the\s+role|replacing|who\s+will|which\s+shall|having\s+been|as\s+(?:the|a|an)\b"
+             r"|to\s+a\s|to\s+the\s+Cincinnati\s+(?:Administration|City\s+Council)|a\s+term|serving\b"
+             r"|for\b|to\s+serve\b|with\s+(?:a|an)\b|effective\b|beginning\b|commencing\b|through\b"
+             r"|until\b|ending\b)|\.\s|\.$|\s*\((?:Male|Female)|$)")
+_APPT_PATTERNS = [
+    # "I hereby appoint NAME as a citizen member of the BODY ..."
+    re.compile(r"I\s+hereby\s+(?:re)?appoint(?:ment|ed|s)?\s+(?P<name>.+?)\s+as\s+(?:a|an|the)\s+[^,]*?\bmember\s+of\s+(?:the\s+)?(?P<body>.+?)" + _APPT_BODY_END, re.I),
+    # Mayor or City Manager: "I hereby appoint NAME to the BODY for a term ..."
+    re.compile(r"I\s+hereby\s+(?:re)?appoint(?:ment|ed|s)?\s+(?P<name>.+?)\s+(?:as\s+(?:the\s+)?(?:City[’']s\s+)?(?:representative|member|director|trustee)\s+)?(?:to|on)\s+(?:the\s+)?(?P<body>.+?)" + _APPT_BODY_END, re.I),
+    # Council motion: "City Council hereby appoints NAME to the BODY for ..."
+    re.compile(r"hereby\s+(?:re)?appoints\s+(?P<name>.+?)\s+(?:to|on)\s+(?:the\s+)?(?P<body>.+?)" + _APPT_BODY_END, re.I),
+    # "WE MOVE that NAME, representing ORG, be appointed to the BODY for ..."
+    re.compile(r"WE\s+MOVE\s+that\s+(?P<name>[^,]+?)(?:,\s+representing\s+[^,]+?)?(?:,[^,]*?)?,?\s+be\s+(?:re)?appointed\s+to\s+(?:the\s+)?(?P<body>.+?)" + _APPT_BODY_END, re.I),
+    # City Manager memo: "appointing NAME to the BODY"
+    re.compile(r"(?:appointing|appointment\s+of)\s+(?P<name>.+?)\s+to\s+(?:the\s+)?(?P<body>.+?)" + _APPT_BODY_END, re.I),
+]
+_APPT_TERM = re.compile(r"(?:for|with)\s+(?:a|an)\s+(?:term|terms|(?:one|two|three|four|five|six)[- ]year\s+term|unexpired\s+term)[^.(]*", re.I)
+_APPT_SKIP = re.compile(r"resignation|vice\s+mayor\s+of|interim\s+replacement|deputy\s+clerk|committee\s+chairs", re.I)
+
+def _appt_clean(s):
+    s = re.sub(r"\s*\([^)]*\)", "", s)
+    return re.sub(r"\s+", " ", s).strip(" ,.;")
+
+def appointment_text(matter_type, raw_title):
+    """(title, summary) for an Appointment or Reappointment, or None when the
+    Legistar title does not follow a recognized form."""
+    t = re.sub(r"\s+", " ", raw_title or "")
+    if _APPT_SKIP.search(t):
+        return None
+    for p in _APPT_PATTERNS:
+        m = p.search(t)
+        if not m:
+            continue
+        name, raw_body = _appt_clean(m.group("name")), m.group("body")
+        body = _appt_clean(raw_body)
+        ab = re.search(r"\(([^)]*)\)\s*(.*)$", raw_body)
+        if ab and len(body) > 70 and ab.group(1).strip():   # very long names with an acronym
+            body = ("Cincinnati " if raw_body.startswith("Cincinnati") else "") + _appt_clean(ab.group(1) + " " + ab.group(2))
+        if (not name or not body or len(name) < 4 or len(name.split()) > 7 or len(body) > 90
+                or re.match(r"(represent|serve|act|position)\b", body, re.I) or " to the " in body):
+            continue
+        body = body[:1].upper() + body[1:]
+        verb = "Reappoint" if matter_type == "Reappointment" else "Appoint"
+        title = f"{verb} {name} to the {body}"
+        tm = _APPT_TERM.search(t, m.end("body"))
+        term = (" " + _appt_clean(tm.group(0))) if tm else ""
+        sub = re.search(r"submitted\s+by\s+(Mayor\s+[A-Z][\w.]*(?:\s+[A-Z][\w.]*)?\s+[A-Z][\w'-]+"
+                        r"|Councilmembers?\s+[^,]+|[^,]+,\s+(?:Interim\s+)?City\s+Manager)", t)
+        who = sub.group(1).strip() if sub else ""
+        if who.endswith("City Manager"):
+            nm, role = who.rsplit(",", 1)
+            who = f"{role.strip()} {nm.strip()}"
+        if who.startswith("Councilmember"):
+            summary = f"Motion by {who} to {verb.lower()} {name} to the {body}{term}."
+        elif who:
+            act = "reappoints" if verb == "Reappoint" else "appoints"
+            summary = f"{who} {act} {name} to the {body}{term}, subject to Council's advice and consent."
+        else:
+            summary = f"{verb}s {name} to the {body}{term}."
+        return title, summary
+    return None
 
 if __name__ == "__main__":
     main()
