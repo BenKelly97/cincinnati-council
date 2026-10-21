@@ -41,6 +41,7 @@ import xml.etree.ElementTree as ET
 import anthropic
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta, timezone
+from collections import Counter, defaultdict
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
@@ -1233,6 +1234,10 @@ def main():
         write_agenda(final_rows, vote_lookup, geo_by_address)
     except Exception as e:
         print(f"Could not build {AGENDA_FILE} ({e}); keeping the existing file.")
+    try:
+        write_agents(final_rows)
+    except Exception as e:
+        print(f"Could not build {AGENTS_FILE} ({e}); keeping the existing file.")
 
 # ─── MEETINGS (agenda.json, agenda_YYYY.json) ─────────────────────────────────
 # Meetings are kept in one file per year from AGENDA_ARCHIVE_START_YEAR. A year
@@ -1412,6 +1417,190 @@ def write_agenda(rows, vote_lookup=None, geo_by_address=None):
                   f, separators=(",", ":"))
     print(f"{AGENDA_FILE}: {len(window)} meetings; year files: "
           + ", ".join(f"{i['year']} ({i['meetings']})" for i in index))
+
+# ─── LEGISLATIVE AGENTS (agents.json) ─────────────────────────────────────────
+# Built from the Registration and Registration-Update rows of the CSV. Legistar's
+# title for each filing reads "... from Legislative Agent <name>, <role>, <firm>,
+# <address>. (<CLIENT>)". The agent is the text after "Legislative Agent" up to
+# the first comma; the client is the parenthetical after the ZIP code (some
+# filings name two). Names are merged with agent_aliases.json and
+# org_aliases.json, reviewed by the council office. A span of representation
+# runs from a registration to its termination, or to its expiration under CMC
+# 112-5(e): the last business day of each odd-numbered year, unless a new
+# registration was filed before then. Updates do not renew a registration.
+
+AGENTS_FILE = "agents.json"
+AGENT_ALIASES_FILE = "agent_aliases.json"
+ORG_ALIASES_FILE = "org_aliases.json"
+AGENT_FIRMS_ORDER = ["Government Strategies Group", "DSD Advisors",
+                     "Taft / Focused Capital Solutions", "Firm not identified"]
+_PAREN_SKIP = re.compile(r"^(UPDATED|TERMINATION|EMPLOYER|UPDATE|TERMINATED|AMENDED)$", re.I)
+_ORG_SMALL_WORDS = {"of", "the", "and", "in", "for", "&", "to", "at", "on", "a", "an", "by", "with"}
+
+def filing_agent(title):
+    m = (re.search(r"Legislative (?:Agents?\s*[,:]?\s*)?([^,(]+)", title, re.I)
+         or re.search(r"submitted by (?:the Clerk of Council from )?([^,(]+)", title, re.I))
+    return re.sub(r"\s+", " ", m.group(1)).strip() if m else ""
+
+def filing_clients(title):
+    """Client names in a filing title, and whether the filing is a termination."""
+    t = title.strip()
+    m = re.search(r"\d{5}(?:-\d{4})?\.?\s*(.*)$", t)
+    tail = m.group(1) if m else t
+    term = bool(re.search(r"\(TERMINAT|TERMINATION\)", t, re.I))
+    out = []
+    for p in (p.strip() for p in re.findall(r"\(([^()]*)\)?", tail)):
+        if not p or _PAREN_SKIP.match(p):
+            continue
+        mm = re.match(r"termination\s*-\s*(.+)", p, re.I)
+        if mm:
+            p, term = mm.group(1).strip(), True
+        out.append(p)
+    return out, term
+
+def org_key(name):
+    k = name.lower().replace("’", "'").replace(" and ", " & ").replace("&", " & ")
+    k = re.sub(r"[.,]", " ", k)
+    k = re.sub(r"\b(llc|inc|corp|corporation|company|co)\b", " ", k)
+    k = re.sub(r"^the\s+", "", k)
+    return re.sub(r"\s+", " ", k).strip()
+
+def filing_firm(title, agent, date, firm_from):
+    rule = firm_from.get(agent)
+    if rule and date >= rule[0]:
+        return rule[1]
+    if re.search(r"Government Strateg|Development Strategies|700 Walnut", title, re.I):
+        return "Government Strategies Group"
+    if re.search(r"DSD Advisors", title) or (re.search(r"Suite 1900", title)
+                                             and re.search(r"2[25]5 E(ast|\.)?\s*(5th|Fifth)", title, re.I)):
+        return "DSD Advisors"
+    if re.search(r"Focused Capi", title, re.I):
+        return "Taft / Focused Capital Solutions"
+    return "Firm not identified"
+
+def org_display(name, keep_upper, fixes):
+    """All-caps names as filed are converted to title case; others are kept."""
+    if name == name.upper() and re.search("[A-Z]", name):
+        words = []
+        for i, w in enumerate(name.split(" ")):
+            if w.strip(",.") in keep_upper or re.search(r"\d", w):
+                words.append(w)
+            elif w.lower() in _ORG_SMALL_WORDS and i > 0:
+                words.append(w.lower())
+            else:
+                words.append("-".join("/".join(p[:1].upper() + p[1:].lower() for p in s.split("/"))
+                                      for s in w.split("-")))
+        name = " ".join(words)
+        name = re.sub(r"(\w)['’](S)\b", lambda m: m.group(1) + "’s", name)
+        name = re.sub(r"\bO['’]r", "O’R", name)
+    return fixes.get(name, name)
+
+def registration_expiry(date):
+    """Last business day of the odd-numbered year on or after the registration date."""
+    y = int(date[:4])
+    y = y if y % 2 else y + 1
+    d = datetime(y, 12, 31).date()
+    while d.weekday() > 4:
+        d -= timedelta(days=1)
+    return d.isoformat()
+
+def agent_spans(filings, today):
+    """filings: one agent's filings for one organization, oldest first.
+    Returns [start, end or None, status, firm, last filing]; status T terminated,
+    E expired, O open, N termination with no registration found."""
+    spans, cur, seen = [], None, False
+    for x in filings:
+        is_reg = x["type"] == "Registration" and not x["term"]
+        if cur and x["date"] > registration_expiry(cur["reg"]):
+            spans.append([cur["start"], registration_expiry(cur["reg"]), "E", cur["firm"], cur["last"]])
+            cur = None
+        if cur is None:
+            if x["term"]:
+                if not seen:
+                    spans.append([x["date"], x["date"], "N", x["firm"], x["date"]])
+                    seen = True
+                continue
+            if is_reg or not seen:
+                cur = {"start": x["date"], "reg": x["date"], "firm": x["firm"], "last": x["date"]}
+                seen = True
+            continue
+        cur["last"], cur["firm"] = x["date"], x["firm"]
+        if x["term"]:
+            spans.append([cur["start"], x["date"], "T", cur["firm"], x["date"]])
+            cur = None
+        elif is_reg:
+            cur["reg"] = x["date"]
+    if cur:
+        exp = registration_expiry(cur["reg"])
+        spans.append([cur["start"], exp, "E", cur["firm"], cur["last"]] if exp < today
+                     else [cur["start"], None, "O", cur["firm"], cur["last"]])
+    return spans
+
+def write_agents(rows):
+    from zoneinfo import ZoneInfo
+    with open(AGENT_ALIASES_FILE, encoding="utf-8") as f:
+        aa = json.load(f)
+    with open(ORG_ALIASES_FILE, encoding="utf-8") as f:
+        oa = json.load(f)
+    agent_alias = {v: k for k, vs in aa["names"].items() for v in vs}
+    not_agents = set(aa.get("not_agents", []))
+    firm_from = aa.get("firm_from", {})
+    org_alias = {v: k for k, vs in oa["names"].items() for v in vs}
+    not_orgs = set(oa.get("not_orgs", []))
+    keep_upper = set(oa.get("keep_upper", []))
+    fixes = oa.get("display", {})
+    today = datetime.now(ZoneInfo("America/New_York")).date().isoformat()
+
+    filings = defaultdict(lambda: defaultdict(list))
+    spellings = defaultdict(Counter)
+    latest = {}
+    skipped = Counter()
+    regs = [r for r in rows if r.get("matter_type") in ("Registration", "Registration-Update")]
+    for r in sorted(regs, key=lambda r: (r.get("intro_date", ""), r.get("file_number", ""))):
+        title = r.get("raw_title", "")
+        clients, term = filing_clients(title)
+        agent = filing_agent(title)
+        if not clients:
+            skipped["no client named"] += 1
+            continue
+        if not agent or agent in not_agents:
+            skipped["no agent named"] += 1
+            continue
+        agent = agent_alias.get(agent, agent)
+        date = r.get("intro_date", "")[:10]
+        firm = filing_firm(title, agent, date, firm_from)
+        done = set()
+        for c in clients:
+            if c in not_orgs:
+                skipped["client is not an organization"] += 1
+                continue
+            g = org_alias.get(org_key(c), org_key(c))
+            if g in done:
+                continue
+            done.add(g)
+            spellings[g][c] += 1
+            filings[g][agent].append({"date": date, "type": r.get("matter_type"), "term": term, "firm": firm})
+            latest[g] = r.get("matter_id", "")
+
+    def display(g):
+        if g in oa["names"]:
+            return g
+        c = spellings[g]
+        mixed = [v for v in c if v != v.upper()]
+        best = max(mixed, key=lambda v: c[v]) if mixed else max(c, key=lambda v: c[v])
+        return org_display(best, keep_upper, fixes)
+
+    orgs = []
+    for g, by_agent in filings.items():
+        orgs.append({"n": display(g), "u": legistar_permalink(latest[g]),
+                     "a": [[a, agent_spans(xs, today)] for a, xs in sorted(by_agent.items())]})
+    orgs.sort(key=lambda o: o["n"].lower())
+    out = {"generated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
+           "as_of": today, "firms": AGENT_FIRMS_ORDER, "orgs": orgs}
+    with open(AGENTS_FILE, "w", encoding="utf-8") as f:
+        json.dump(out, f, separators=(",", ":"), ensure_ascii=False)
+    print(f"{AGENTS_FILE}: {len(orgs)} organizations from {len(regs)} registration filings; skipped "
+          + ", ".join(f"{k} {v}" for k, v in sorted(skipped.items())))
 
 if __name__ == "__main__":
     main()

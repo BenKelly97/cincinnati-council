@@ -1,0 +1,267 @@
+{
+ "_note": "Client organization merges, reviewed by the council office 2026-10-20. 'names': display name -> match keys (lower case, punctuation and LLC/Inc./Co. removed, 'and' as '&', leading 'the' removed). Names that differ only in those ways merge without an entry. 'not_orgs': parenthetical values that are not organizations. 'keep_upper': words kept in capitals when an all-caps name is converted. 'display': converted name -> corrected display name.",
+ "names": {
+  "3CDC (Cincinnati Center City Development Corp.)": [
+   "3cdc",
+   "cincinnati center city development",
+   "cincinnati center city development 3cdc",
+   "cincinnati center city development corportation"
+  ],
+  "8K Company": [
+   "8k"
+  ],
+  "Altafiber": [
+   "altafiber",
+   "cincinnati bell"
+  ],
+  "Arena Management Holdings": [
+   "arena management holdings"
+  ],
+  "BP": [
+   "bp",
+   "bp pipeline"
+  ],
+  "Best Point Education & Behavioral Health": [
+   "best point behavioral health",
+   "best point education & behavioral health",
+   "best point education & behaviorial health",
+   "best point education & behavorial health",
+   "best pointe education & behavioral health"
+  ],
+  "Blue Ocean Development": [
+   "blue ocean",
+   "blue ocean development"
+  ],
+  "Boys & Girls Clubs of Greater Cincinnati": [
+   "boys & girls blub of greater cincinnati",
+   "boys & girls club of greater cincinnati",
+   "boys & girls clubs of greater cincinnati",
+   "boys & girlsclubofgreatercincinnati"
+  ],
+  "C.O.D.E.": [
+   "c o d e",
+   "code"
+  ],
+  "Camp Joy": [
+   "camp joy",
+   "campjoy"
+  ],
+  "Center for Addiction Treatment": [
+   "center for addiction treatment",
+   "center for chemical addictions treatment"
+  ],
+  "Cincinnati Ballet": [
+   "ballet",
+   "cincinnati ballet"
+  ],
+  "Cincinnati Barge & Rail Terminal": [
+   "cincinnati barge & rail",
+   "cincinnati barge & rail terminal"
+  ],
+  "Cincinnati Children's Hospital Medical Center": [
+   "cchmc",
+   "cincinnati children's hospital medical center",
+   "cincinnati children's hosptial medical center",
+   "cincinnati childrens hospital & medical center"
+  ],
+  "Cincinnati Metro": [
+   "cincinnati metro",
+   "metro",
+   "metro/sorta"
+  ],
+  "Cincinnati Playhouse in the Park": [
+   "cincinnati playhouse in the park",
+   "playhouse in the park"
+  ],
+  "Cincinnati USA Regional Chamber": [
+   "cincinnati regional chamber",
+   "cincinnati regional chambers",
+   "cincinnati usa regional chamber",
+   "cincinnati usa regional chambers"
+  ],
+  "Cincinnati/Northern Kentucky International Airport": [
+   "cincinnati nky international airport",
+   "cincinnati/nky international airport"
+  ],
+  "CincyTech": [
+   "cincy tech",
+   "cincytech"
+  ],
+  "Energy Alliances": [
+   "energy alliances"
+  ],
+  "Everytown for Gun Safety Action Fund": [
+   "everytown",
+   "everytown for gun safety action fund"
+  ],
+  "FC Cincinnati": [
+   "fc cincinnati",
+   "futbol club cincinnati"
+  ],
+  "H. Hafner & Sons": [
+   "h hafner & sons",
+   "hafner & sons"
+  ],
+  "HDR": [
+   "hdr"
+  ],
+  "Hamilton County Mental Health & Recovery Services Board": [
+   "ham mental health & recovery services",
+   "ham mental health & recovery services board",
+   "hamilton county mental health & recovery services board"
+  ],
+  "Hispanic Chamber Cincinnati USA": [
+   "hispanic chamber cincinnati usa",
+   "hispanic chamber cincinnati use"
+  ],
+  "Indiana & Ohio Railway": [
+   "indiana & ohio r r",
+   "indiana & ohio railroad",
+   "indiana & ohio railway",
+   "indiana & ohio rr",
+   "indiana & oho rr"
+  ],
+  "JACK Cincinnati Casino": [
+   "jack cincinnati casino",
+   "jack entertainment"
+  ],
+  "KeyCorp & Subsidiaries": [
+   "keycorp & subsidiaries"
+  ],
+  "Kingsley + Co": [
+   "kingsley &",
+   "kingsley +"
+  ],
+  "Kroger": [
+   "kroger",
+   "kroger community"
+  ],
+  "Lighthouse Youth & Family Services": [
+   "lighthouse youth & family services",
+   "lighthouse youth services"
+  ],
+  "Local Oakley": [
+   "local oakley"
+  ],
+  "MORTAR": [
+   "mortar",
+   "mortar cincinnati"
+  ],
+  "Madison & Stewart": [
+   "madison & stewart"
+  ],
+  "Nancy & David Wolf Holocaust & Humanity Center": [
+   "holocaust & humanity center",
+   "nancy & david wolf holocaust & humanity center"
+  ],
+  "Oakley Yards": [
+   "oakley yards",
+   "oakley yards development"
+  ],
+  "Paramount Redevelopment Group": [
+   "paramount",
+   "paramount redevelopment",
+   "paramount redevelopment group"
+  ],
+  "Santa Maria Community Services": [
+   "santa maria community",
+   "santa maria community center",
+   "santa maria community service",
+   "santa maria community services"
+  ],
+  "Sawyer Place Company": [
+   "sawyer &",
+   "sawyer place"
+  ],
+  "Team Inc.": [
+   "team"
+  ],
+  "Terrex Development & Construction": [
+   "terrex construction",
+   "terrex development & construction"
+  ],
+  "The Literacy Lab / Leading Men Fellowship": [
+   "literacy lab",
+   "literacy lab / leading men fellowship",
+   "literacy lab/ leading men fellowship",
+   "literacy lab/leading men fellowship"
+  ],
+  "Trinitas Ventures": [
+   "trinitas",
+   "trinitas ventures"
+  ],
+  "Uber Technologies": [
+   "uber technologies",
+   "uber technologies & affiliates"
+  ],
+  "University of Cincinnati": [
+   "uc",
+   "university of cincinnati"
+  ],
+  "Uptown Consortium": [
+   "uptown",
+   "uptown consortium"
+  ],
+  "Valley Asphalt Corp.": [
+   "valley asphalt",
+   "valley asphalt cop"
+  ],
+  "Visit Cincy": [
+   "cincinnati usa convention & visitors bureau",
+   "visit cincy",
+   "visitcincy"
+  ],
+  "Vistra": [
+   "vistra",
+   "vistra/dynegy"
+  ],
+  "Zillow Group": [
+   "zillow group"
+  ]
+ },
+ "not_orgs": [
+  "ENVIRONMENT",
+  "HEALTH POLICY AND ADVOCACY",
+  "John",
+  "Law Enforcement Technology",
+  "TECHNOLOGY DEPARTMENT LEADER."
+ ],
+ "keep_upper": [
+  "AARP",
+  "ACT",
+  "ASM",
+  "BP",
+  "CCHMC",
+  "EFP",
+  "HDR",
+  "HNTB",
+  "HPSRD",
+  "II",
+  "III",
+  "JACK",
+  "KY",
+  "LADD",
+  "LLC",
+  "LLP",
+  "N",
+  "NAIOP",
+  "NB",
+  "NKY",
+  "OTR",
+  "OVG360",
+  "PLK",
+  "RR",
+  "SORTA",
+  "STC",
+  "TIAA",
+  "TWG",
+  "UC",
+  "USA",
+  "YWCA"
+ ],
+ "display": {
+  "Naiop-Cincinnati": "NAIOP Cincinnati",
+  "Twenty Labs, LLC. Also Known As Healthy Together": "Twenty Labs (Healthy Together)",
+  "Vinebrookhomes": "VineBrook Homes"
+ }
+}

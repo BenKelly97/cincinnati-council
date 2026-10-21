@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Council">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1c1c1a" media="(prefers-color-scheme: dark)">
 <title>Cincinnati City Council — Legislative Record</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -159,6 +165,10 @@ main{padding:1.5rem 0 3rem}
 .vote-abstain{color:var(--amber-text)}
 .members-link{font-size:13px;color:var(--accent);margin-left:auto}
 
+@media(max-width:860px){
+  .header-inner{flex-wrap:wrap;row-gap:4px}
+  .header-nav{margin-left:0;gap:6px 14px;flex-wrap:wrap;width:100%}
+}
 @media(max-width:600px){
   .filters{grid-template-columns:1fr 1fr}
   .header-meta{display:none}
@@ -176,7 +186,7 @@ main{padding:1.5rem 0 3rem}
     <div class="header-inner">
       <div class="logo">Cincinnati City Council <span>/ Legislative Record</span></div>
       <div class="header-meta"><span id="last-updated"></span>&nbsp;&nbsp;<span id="header-meta">Loading…</span></div>
-      <nav class="header-nav"><a href="agenda.html">Meetings →</a><a href="alternative.html">Roll Call Votes →</a><a href="members.html">Member Records →</a><a href="about.html">About →</a></nav>
+      <nav class="header-nav"><a href="agenda.html">Meetings →</a><a href="alternative.html">Roll Call Votes →</a><a href="members.html">Member Records →</a><a href="agents.html">Legislative Agents →</a><a href="about.html">About →</a></nav>
     </div>
   </div>
 </header>

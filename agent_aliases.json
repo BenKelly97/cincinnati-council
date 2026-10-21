@@ -1,0 +1,182 @@
+{
+ "_note": "Legislative Agent name merges, reviewed by the council office 2026-10-20. 'names': display name -> spellings as filed in Legistar titles. 'not_agents': values in the agent position that are not agents (data errors). 'firm_from': agent -> [date, firm] for filings on or after the date.",
+ "names": {
+  "Alana Tucker": [
+   "Alana M. Tucker",
+   "Alana Tucker"
+  ],
+  "Alison Trianfo": [
+   "Ali Trianfo",
+   "Alison C. Trianfo",
+   "Alison Trianfo"
+  ],
+  "Annalese Cahill": [
+   "Annalese Cahill",
+   "Annalese Cahill.",
+   "Annalese Cahill. Government Affairs",
+   "Annalese Marie Cahill"
+  ],
+  "Anne Sesler": [
+   "Anna C. Sesler",
+   "Anna Sesler",
+   "Anne C. Sesler",
+   "Anne Sesler"
+  ],
+  "Ashley Ward": [
+   "Ashley M. Ward",
+   "Ashley Marie Ward"
+  ],
+  "Bridget McAuliffe": [
+   "Bridget McAliffe",
+   "Bridget McAuliffe"
+  ],
+  "Candace Sabers": [
+   "Candace L. Novak Sabers",
+   "Candace Leigh Novak Sabers",
+   "Candace Leigh Sabers",
+   "Candace Sabers"
+  ],
+  "Charles H. Gerhardt III": [
+   "Charles Gerhadt",
+   "Charles Gerhardt",
+   "Charles Gerhardt III",
+   "Charles H.",
+   "Charles H. G erhardt",
+   "Charles H. Gerhardt",
+   "Charles H. Gerhardt III",
+   "Charles H. Gerhart",
+   "Charlesa H. Gerhardt"
+  ],
+  "Charles Luken": [
+   "Charles J. Luken",
+   "Charles Luken",
+   "Charles Lunken"
+  ],
+  "Chase Mosijowsky": [
+   "Chase James Mosijowsky",
+   "Chase Mosijowsky"
+  ],
+  "Colleen Reynolds": [
+   "Colleen M. Reynolds",
+   "Colleen Marie Reynolds",
+   "Colleen Reynolds"
+  ],
+  "Derrick Clay": [
+   "Derrick Clay",
+   "Derrick R. Clay"
+  ],
+  "Doug Moormann": [
+   "Doug Moorman",
+   "Doug Moormann",
+   "Douglas J. Moorman",
+   "Douglas J. Moormann",
+   "Douglas Moormann",
+   "J. Douglas Moormann"
+  ],
+  "George Glover": [
+   "George Glover",
+   "George T. Glover"
+  ],
+  "Gregory Lestini": [
+   "Geogory J. Lestini"
+  ],
+  "Holly Bowen Nagel Hankinson": [
+   "Holly Bowen Nagel Hankinson",
+   "Holly Hankinson"
+  ],
+  "James T. Benedict": [
+   "James Benedict",
+   "James T. Bendict",
+   "James T. Benedict",
+   "James T. Benedict III",
+   "James T. Benefict",
+   "Jim Benedict"
+  ],
+  "Jason Kershner": [
+   "Jason A. Kershner",
+   "Jason Kershner"
+  ],
+  "John Cranley": [
+   "John Cranley",
+   "John J Cranley"
+  ],
+  "Karen Ryan": [
+   "Karen A. Ryan",
+   "Karen Ryan"
+  ],
+  "Katherine Ott Zehnder": [
+   "Katherine Ott Zehnder",
+   "Kathleen Ott Zehnder"
+  ],
+  "Kevin Burton": [
+   "Kevin Burton",
+   "Kevin Thomas Burton"
+  ],
+  "Kevin Werner": [
+   "Kevin Ralph Werner",
+   "Kevin Werner"
+  ],
+  "Kylie Johnson": [
+   "Kylie Jane Johnson",
+   "Kylie Johnson"
+  ],
+  "Lauren Diaz": [
+   "Lauren Diaz",
+   "Lauren N. Diaz"
+  ],
+  "Lisa Cooper": [
+   "Lisa Cooper",
+   "Lisa S. Cooper"
+  ],
+  "Margaret Hulbert": [
+   "Margarat Hulbert",
+   "Margaret Hulbert"
+  ],
+  "Matt Davis": [
+   "Matt David",
+   "Matt Davis",
+   "Matthew Davis",
+   "Matthew J. Davis",
+   "Matthew James Davis"
+  ],
+  "Meghan Cummings": [
+   "Meghan Elizabeth Cummings",
+   "Meghan Elzabeth Cummings"
+  ],
+  "Ryan Gentil": [
+   "Ryan D Gentil",
+   "Ryan David Gentil"
+  ],
+  "Sonya Jindal Tork": [
+   "Sonya Jindal Tork",
+   "Sonya Singla Jindal Tork"
+  ],
+  "Steve Driehaus": [
+   "Steve Driehaus",
+   "Steven Driehaus"
+  ],
+  "Ted Heckmann": [
+   "Ted Heckman",
+   "Ted Heckmann",
+   "Theodore Heckmann"
+  ],
+  "Vaughn Roland": [
+   "Roland Vaughn",
+   "Vaughn Roland"
+  ],
+  "Zachary McCune": [
+   "Zachary McCune",
+   "Zachary McCure",
+   "Zachery McCune"
+  ]
+ },
+ "not_agents": [
+  "Transdev North America"
+ ],
+ "firm_from": {
+  "George Glover": [
+   "2024-12-19",
+   "DSD Advisors"
+  ]
+ }
+}

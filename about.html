@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Council">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1c1c1a" media="(prefers-color-scheme: dark)">
 <title>About — Cincinnati City Council Legislative Record</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -63,7 +69,7 @@ h1{font-size:20px;font-weight:600;letter-spacing:-0.01em;margin-bottom:0.25rem}
 .loading{text-align:center;padding:3rem;color:var(--text3);font-size:14px}
 .empty{text-align:center;padding:2rem;color:var(--text2);font-size:14px;background:var(--bg);border:1px solid var(--border);border-radius:12px}
 .error-box{background:var(--red-bg);color:var(--red-text);border:1px solid;border-radius:10px;padding:1rem 1.25rem;font-size:14px;margin-bottom:1rem}
-@media(max-width:600px){
+@media(max-width:720px){
   .logo span{display:none}
   .header-inner{flex-wrap:wrap;row-gap:4px}
   .header-nav{margin-left:0;gap:12px;flex-wrap:wrap}
@@ -87,6 +93,7 @@ h1{font-size:20px;font-weight:600;letter-spacing:-0.01em;margin-bottom:0.25rem}
 <a href="agenda.html">Meetings</a>
 <a href="alternative.html">Roll Call Votes</a>
 <a href="members.html">Member Records</a>
+<a href="agents.html">Legislative Agents</a>
 <a href="about.html" class="here">About</a>
       </nav>
     </div>
@@ -113,6 +120,9 @@ h1{font-size:20px;font-weight:600;letter-spacing:-0.01em;margin-bottom:0.25rem}
 
       <h2>Votes</h2>
       <p>Votes are read from Legistar's roll call records for meetings of the full Council. The site's vote records start in June 2020. Earlier roll calls have not been read from Legistar, so records before then show no vote breakdown. For each matter the site shows the final passage vote (passed, adopted, failed and similar actions). Procedural votes such as referrals, emergency clauses and motions to suspend readings are not shown. The Mayor is not a member of Council; where Legistar lists the Mayor in a roll call (some 2020 and 2021 records), that entry is left out. Votes are not available for committee meetings on this site.</p>
+
+      <h2>Legislative Agents</h2>
+      <p>The <a href="agents.html">Legislative Agents</a> page lists organizations that registered a Legislative Agent with the Clerk of Council, with the firm and agents for each. It is built on each daily update from the Registration and Registration-Update filings in Legistar. The agent and client come from the filing's Legistar title; filings whose title names no client organization are left out. Spellings of the same agent or organization are combined using a list reviewed by the council office. The firm is read from the firm name or address in each filing; agents whose firm is not identified that way are grouped as "Firm not identified". Dates run from the registration to the termination filing. Under Cincinnati Municipal Code 112-5(e), a registration expires on the last business day of each odd-numbered year unless terminated earlier, and updates do not renew it; where no termination or new registration was filed, the dates end at that expiration and are marked "expired". That rule took effect January 1, 2025 (Ordinance 299-2024) and is applied here to all years.</p>
 
       <h2>How values are grouped</h2>
       <ul>
