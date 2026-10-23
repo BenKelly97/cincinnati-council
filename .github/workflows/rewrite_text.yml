@@ -14,6 +14,11 @@ on:
         description: 'Dry run: show the results only, save nothing'
         type: boolean
         default: true
+      model:
+        description: 'Model'
+        type: choice
+        options: [haiku-4-5, sonnet-5-5]
+        default: haiku-4-5
 
 concurrency:
   group: rewrite-text
@@ -40,9 +45,9 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           if [ "${{ inputs.dry_run }}" = "true" ]; then
-            python3 rewrite_text.py --limit "${{ inputs.limit }}" --dry-run
+            python3 rewrite_text.py --limit "${{ inputs.limit }}" --model "${{ inputs.model }}" --dry-run
           else
-            python3 rewrite_text.py --limit "${{ inputs.limit }}"
+            python3 rewrite_text.py --limit "${{ inputs.limit }}" --model "${{ inputs.model }}"
           fi
 
       - name: Rebuild site data
