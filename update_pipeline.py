@@ -228,9 +228,18 @@ GEO_STR   = ",".join(GEOGRAPHY_TAGS)
 
 BATCH_SIZE = 15  # items per API call
 
-# Haiku pricing (per million tokens)
-HAIKU_INPUT_COST  = 0.80   # $0.80 per million input tokens
-HAIKU_OUTPUT_COST = 4.00   # $4.00 per million output tokens
+# Haiku 4.5 pricing (per million tokens)
+HAIKU_INPUT_COST  = 1.00   # $1.00 per million input tokens
+HAIKU_OUTPUT_COST = 5.00   # $5.00 per million output tokens
+
+# Writing rules for the title ("t") and description ("s"). Used by tag_batch for
+# new items and by rewrite_text.py for the one-time rewrite of existing items.
+STYLE_RULES = """Writing rules for "t" (title) and "s" (description):
+- Write standard English, not headline style. Use "the", "a" and "an" where ordinary prose would. In a list of three or more, put "and" before the last item ("A, B and C").
+- t: at most 12 words. For an action, start with the verb ("Authorize the transfer of $200,000 for special events"); for a presentation, report or communication, use a noun phrase ("Report on the Paul Clock Bell Tower").
+- s: one complete sentence of at most 30 words, present tense, ending with a period ("Authorizes...", "Asks the City Manager to..."). Say what the item does and give the key amount, place, organization or person. Name who submitted it (the Mayor, the City Manager or a Councilmember) when the text says so.
+- Spell out abbreviations: "Ordinance No. 36-2025", not "Ord. 36-2025"; "fiscal year 2028", not "FY 2028". Keep proper names, addresses and file numbers as written.
+- Use only facts in the item text; do not guess. Say "Legislative Agent", never "lobbyist"."""
 
 def tag_batch(client, items):
     """Tag multiple items in a single API call. Returns (results, input_tokens, output_tokens)."""
@@ -240,7 +249,8 @@ def tag_batch(client, items):
     batch_text = "\n".join(lines)
 
     prompt = f"""Tag Cincinnati City Council agenda items. Return a JSON array, one object per line.
-Each object: {{"i":index,"t":"plain title ≤12 words","tp":["topic1"],"a":"action_type","g":["geo"],"s":"summary ≤20 words"}}
+Each object: {{"i":index,"t":"title","tp":["topic1"],"a":"action_type","g":["geo"],"s":"description"}}
+{STYLE_RULES}
 Topics: {TOPIC_STR}
 Actions: {ACTION_STR}
 Geo: {GEO_STR} (citywide if broad, [] if unclear)
@@ -251,7 +261,7 @@ JSON array only, no markdown."""
     try:
         resp = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=2000,
+            max_tokens=3000,
             messages=[{"role": "user", "content": prompt}]
         )
         raw = resp.content[0].text.strip()
