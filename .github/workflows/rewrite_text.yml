@@ -1,0 +1,63 @@
+name: Rewrite titles and descriptions (one time)
+
+# Manual only. Test with dry_run on (results shown on the run page, nothing saved),
+# then run with dry_run off to save. Each saved run rebuilds the site data and commits.
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Rows to rewrite (0 = all remaining)'
+        type: string
+        default: '30'
+      dry_run:
+        description: 'Dry run: show the results only, save nothing'
+        type: boolean
+        default: true
+
+concurrency:
+  group: rewrite-text
+
+jobs:
+  rewrite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests anthropic beautifulsoup4
+
+      - name: Rewrite titles and descriptions
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            python3 rewrite_text.py --limit "${{ inputs.limit }}" --dry-run
+          else
+            python3 rewrite_text.py --limit "${{ inputs.limit }}"
+          fi
+
+      - name: Rebuild site data
+        if: ${{ inputs.dry_run != true }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python3 update_pipeline.py
+
+      - name: Commit and push
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add council_data.json cincinnati_agenda_items_complete.csv title_overrides.json summary_overrides.json
+          for f in agenda.json agenda_index.json agenda_20*.json agents.json geocode_cache.json; do if [ -f "$f" ]; then git add "$f"; fi; done
+          git diff --staged --quiet || git commit -m "Title and description rewrite $(date -u +'%Y-%m-%d %H:%M') UTC"
+          git pull --rebase
+          git push
