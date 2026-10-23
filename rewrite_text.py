@@ -5,6 +5,7 @@ Run by .github/workflows/rewrite_text.yml.
 
   python3 rewrite_text.py --limit 30 --dry-run   test: a fixed random sample, nothing saved
   python3 rewrite_text.py --limit 0               all remaining rows, saved to the CSV
+  --model haiku-4-5 (default) or sonnet-5-5
 
 Skipped: registrations, statements and other untagged types; appointments with the
 fixed wording; rows with a manual title or description override; rows already done.
@@ -24,6 +25,12 @@ import update_pipeline as up
 REWRITE_MARK = "[style rewrite]"
 BATCH = 15
 RAW_MAX = 1500          # characters of the Legistar title sent per item
+# Model choice: (API model id, $ per million input tokens, $ per million output tokens).
+# Sonnet 5.5 rates are from a third-party listing; the run reports measured cost either way.
+MODELS = {
+    "haiku-4-5":  ("claude-haiku-4-5-20251001", 1.00, 5.00),
+    "sonnet-5-5": ("claude-sonnet-5-5", 2.00, 10.00),
+}
 # File numbers given a manual title or description (from the history of
 # title_overrides.json and summary_overrides.json as of 2026-10-23).
 MANUAL_FILES = {"202602776", "202602785"}
@@ -56,8 +63,8 @@ Items (index|type|requester|Legistar text|current title|current description):
 JSON array only, no markdown."""
 
 
-def call(client, rows):
-    resp = client.messages.create(model="claude-haiku-4-5-20251001", max_tokens=3000,
+def call(client, model, rows):
+    resp = client.messages.create(model=model, max_tokens=3000,
                                   messages=[{"role": "user", "content": prompt_for(rows)}])
     if resp.stop_reason == "max_tokens":
         raise ValueError("response cut off at max_tokens")
@@ -88,6 +95,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=30, help="rows to rewrite; 0 = all remaining")
     ap.add_argument("--dry-run", action="store_true", help="print the results; do not save")
+    ap.add_argument("--model", choices=sorted(MODELS), default="haiku-4-5")
     a = ap.parse_args()
 
     with open(up.OUTPUT_CSV, newline="", encoding="utf-8") as f:
@@ -105,13 +113,14 @@ def main():
             todo = todo[:a.limit]
     print(f"Rewriting {len(todo)} rows{' (dry run)' if a.dry_run else ''}.")
 
+    model, in_rate, out_rate = MODELS[a.model]
     client = anthropic.Anthropic(api_key=up.ANTHROPIC_API_KEY)
     tin = tout = 0
     done, kept, pairs = 0, [], []
     for b in range(0, len(todo), BATCH):
         chunk = todo[b:b + BATCH]
         try:
-            data, i_t, o_t = call(client, chunk)
+            data, i_t, o_t = call(client, model, chunk)
             tin, tout = tin + i_t, tout + o_t
         except Exception as e:
             print(f"  batch {b // BATCH + 1}: error ({e}); rows left unchanged")
@@ -120,7 +129,8 @@ def main():
         got = {d.get("i"): d for d in data if isinstance(d, dict)}
         for i, r in enumerate(chunk):
             d = got.get(i) or {}
-            t, s = (d.get("t") or "").strip(), (d.get("s") or "").strip()
+            t = (d.get("t") or "").strip().rstrip(".").strip()   # titles take no ending period
+            s = (d.get("s") or "").strip()
             why = usable(t, s)
             if why:
                 kept.append((r["file_number"], why))
@@ -130,13 +140,13 @@ def main():
                 r["clean_title"], r["summary"] = t, s
                 r["notes"] = ((r.get("notes") or "") + " " + REWRITE_MARK).strip()
             done += 1
-        cost = tin / 1e6 * up.HAIKU_INPUT_COST + tout / 1e6 * up.HAIKU_OUTPUT_COST
+        cost = tin / 1e6 * in_rate + tout / 1e6 * out_rate
         print(f"  batch {b // BATCH + 1}: {done} rewritten so far, ${cost:.3f}")
 
-    cost = tin / 1e6 * up.HAIKU_INPUT_COST + tout / 1e6 * up.HAIKU_OUTPUT_COST
+    cost = tin / 1e6 * in_rate + tout / 1e6 * out_rate
     per = cost / len(todo) if todo else 0
     eligible_left = sum(1 for r in rows if eligible(r))
-    summary = [f"## Title and description rewrite{' (dry run, nothing saved)' if a.dry_run else ''}",
+    summary = [f"## Title and description rewrite, {a.model}{' (dry run, nothing saved)' if a.dry_run else ''}",
                f"Rewritten: {done}. Kept unchanged: {len(kept)}. "
                f"Tokens: {tin:,} in, {tout:,} out. Cost: ${cost:.4f} (${per:.5f} per row).",
                f"Eligible rows not yet rewritten after this run: {eligible_left:,}; "

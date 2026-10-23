@@ -235,11 +235,20 @@ HAIKU_OUTPUT_COST = 5.00   # $5.00 per million output tokens
 # Writing rules for the title ("t") and description ("s"). Used by tag_batch for
 # new items and by rewrite_text.py for the one-time rewrite of existing items.
 STYLE_RULES = """Writing rules for "t" (title) and "s" (description):
-- Write standard English, not headline style. Use "the", "a" and "an" where ordinary prose would. In a list of three or more, put "and" before the last item ("A, B and C").
-- t: at most 12 words. For an action, start with the verb ("Authorize the transfer of $200,000 for special events"); for a presentation, report or communication, use a noun phrase ("Report on the Paul Clock Bell Tower").
-- s: one complete sentence of at most 30 words, present tense, ending with a period ("Authorizes...", "Asks the City Manager to..."). Say what the item does and give the key amount, place, organization or person. Name who submitted it (the Mayor, the City Manager or a Councilmember) when the text says so.
-- Spell out abbreviations: "Ordinance No. 36-2025", not "Ord. 36-2025"; "fiscal year 2028", not "FY 2028". Keep proper names, addresses and file numbers as written.
-- Use only facts in the item text; do not guess. Say "Legislative Agent", never "lobbyist"."""
+- Write standard English as in the body of a newspaper story, not headline style.
+- Articles: use "the", "a" and "an" wherever ordinary prose needs them, including before the names of programs, funds, districts, departments, committees, agreements and events ("the Black Family Reunion", "the Over-the-Rhine South Special Improvement District", "the City's yard waste program").
+- Lists: no comma before the final "and" ("A, B and C").
+- Capitalization: keep proper names capitalized as in the item text ("Human Service Fund", "Cincinnati Police Department"). Capitalize "City" when it means the City of Cincinnati.
+- t (title): at most 12 words and no ending period. For an action, start with the verb ("Authorize the transfer of $200,000 for special events"); for a presentation, report or communication, use a noun phrase ("Report on the Paul Clock Bell Tower").
+- s (description): one complete sentence of at most 30 words, present tense, ending with a period ("Authorizes the City Manager to...", "Asks the Administration to..."). Say what the item does and give the key amount, place, organization or person.
+- Spell out abbreviations: "Ordinance No. 36-2025", not "Ord. 36-2025"; "fiscal year 2028", not "FY 2028". Keep addresses and file numbers as written.
+- Keep the names of agreements, laws and organizations accurate. To shorten, leave words out; never merge two names into one.
+- Use only facts in the item text; do not guess. Say "Legislative Agent", never "lobbyist".
+Example of the change wanted:
+  wrong t: Street repairs contract Westwood Price Hill.
+  wrong s: Authorize $2.1M contract for paving, sidewalk repair, curb replacement in Westwood, Price Hill
+  right t: Authorize a $2.1 million street repair contract for Westwood and Price Hill
+  right s: Authorizes a $2.1 million contract for paving, sidewalk repair and curb replacement in Westwood and Price Hill."""
 
 def tag_batch(client, items):
     """Tag multiple items in a single API call. Returns (results, input_tokens, output_tokens)."""
