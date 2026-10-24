@@ -23,7 +23,6 @@ import shutil
 import subprocess
 import tempfile
 import time
-import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 
 import requests
@@ -35,8 +34,6 @@ MAX_PAGES = 6            # pages read per PDF
 NONE_RETRY_DAYS = 30     # keep re-checking an item with no attachment for this long
 FETCH_LIMIT = 40         # attachments downloaded per run
 AWAITING_MARK = "[awaiting attachment]"
-
-NS = "{http://schemas.datacontract.org/2004/07/LegistarWebAPI.Models.v1}"
 
 # The title stops short and points to the attachment.
 _STUB_RE = re.compile(
@@ -64,10 +61,10 @@ def save_cache(cache, path=CACHE_FILE):
         f.write("\n")
 
 
-def _get(url, timeout=60, tries=3):
+def _get(url, timeout=60, tries=3, headers=None):
     for attempt in range(1, tries + 1):
         try:
-            r = requests.get(url, timeout=timeout)
+            r = requests.get(url, timeout=timeout, headers=headers or {})
             r.raise_for_status()
             return r
         except Exception:
@@ -77,21 +74,18 @@ def _get(url, timeout=60, tries=3):
 
 
 def list_attachments(api_base, matter_id):
-    """Return [(attachment_id, name, url, sort)] for a matter, from the public API."""
-    r = _get(f"{api_base}/matters/{matter_id}/attachments")
-    root = ET.fromstring(r.content)
+    """Return [(attachment_id, name, url, sort)] for a matter, from the public API.
+    The API answers in JSON unless asked for XML; JSON is requested explicitly."""
+    r = _get(f"{api_base}/matters/{matter_id}/attachments", headers={"Accept": "application/json"})
     out = []
-    for a in root.findall(f"{NS}GranicusMatterAttachment"):
-        def t(tag):
-            e = a.find(NS + tag)
-            return (e.text or "").strip() if e is not None and e.text else ""
-        if t("MatterAttachmentShowOnInternetPage").lower() == "false":
+    for a in r.json() or []:
+        if a.get("MatterAttachmentShowOnInternetPage") is False:
             continue
-        url = t("MatterAttachmentHyperlink")
+        url = (a.get("MatterAttachmentHyperlink") or "").strip()
         if not url:
             continue
-        sort = int(t("MatterAttachmentSort") or 0)
-        out.append((t("MatterAttachmentId"), t("MatterAttachmentName"), url, sort))
+        out.append((str(a.get("MatterAttachmentId") or ""), (a.get("MatterAttachmentName") or "").strip(),
+                    url, int(a.get("MatterAttachmentSort") or 0)))
     return out
 
 
