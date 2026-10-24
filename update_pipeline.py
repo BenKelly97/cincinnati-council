@@ -40,6 +40,7 @@ import argparse, csv, re, sys, time, json, requests
 import xml.etree.ElementTree as ET
 import anthropic
 from bs4 import BeautifulSoup
+import attachments as att
 from datetime import datetime, timedelta, timezone
 from collections import Counter, defaultdict
 
@@ -47,6 +48,9 @@ from collections import Counter, defaultdict
 
 import os
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "YOUR_API_KEY_HERE")
+# Attachment text for items whose Legistar title stops at "(BALANCE ON FILE...)".
+# Loaded in main(); tag_batch reads it. See attachments.py.
+ATT_CACHE = {}
 
 EXISTING_CSV  = "cincinnati_agenda_items_complete.csv"
 OUTPUT_CSV    = "cincinnati_agenda_items_complete.csv"
@@ -244,6 +248,8 @@ STYLE_RULES = """Writing rules for "t" (title) and "s" (description):
 - Spell out abbreviations: "Ordinance No. 36-2025", not "Ord. 36-2025"; "fiscal year 2028", not "FY 2028". Keep addresses and file numbers as written.
 - Keep the names of agreements, laws and organizations accurate. To shorten, leave words out; never merge two names into one.
 - Use only facts in the item text; do not guess. Say "Legislative Agent", never "lobbyist".
+- When an item includes [ATTACHED TEXT ...], it is the full text the title stops short of. Base t and s on what it asks for or does. Ignore letterheads, addresses, phone numbers, email addresses and signatures, and leave out any words or figures garbled by scanning.
+- Never write that details are "on file" or that the item asks for "the following"; say what it actually asks for.
 Example of the change wanted:
   wrong t: Street repairs contract Westwood Price Hill.
   wrong s: Authorize $2.1M contract for paving, sidewalk repair, curb replacement in Westwood, Price Hill
@@ -254,7 +260,7 @@ def tag_batch(client, items):
     """Tag multiple items in a single API call. Returns (results, input_tokens, output_tokens)."""
     lines = []
     for i, item in enumerate(items):
-        lines.append(f"{i}|{item['raw_title']}|{item['matter_type']}|{item['body']}|{item['requester']}")
+        lines.append(f"{i}|{att.prompt_text(item, ATT_CACHE)}|{item['matter_type']}|{item['body']}|{item['requester']}")
     batch_text = "\n".join(lines)
 
     prompt = f"""Tag Cincinnati City Council agenda items. Return a JSON array, one object per line.
@@ -890,9 +896,12 @@ def tag_new_items(items):
                     "summary":        p.get("s", ""),
                     "tag_status":     "success"
                 })
+                mark_awaiting(item)
             else:
                 # Fallback to single-item tagging
                 tag_item(client, item)
+                if item.get("tag_status") == "success":
+                    mark_awaiting(item)
                 if item.get("tag_status") != "success":
                     # AI tagging failed twice. Keep the matter on the site with its
                     # raw title and no tags rather than leaving it out.
@@ -906,6 +915,68 @@ def tag_new_items(items):
     return total_input_tokens, total_output_tokens
 
 UNTAGGED_MARK = "[auto-tag failed]"
+
+def mark_awaiting(item):
+    """Note in the row that its attachment text was not available when it was tagged,
+    so a later run re-tags it once the attachment is posted."""
+    if att.awaiting(item, ATT_CACHE) and att.AWAITING_MARK not in (item.get("notes") or ""):
+        item["notes"] = ((item.get("notes") or "") + " " + att.AWAITING_MARK).strip()
+
+def retag_awaiting(rows):
+    """Re-tag rows marked as awaiting their attachment once its text is available.
+    Returns (fixed, still_waiting)."""
+    todo = [r for r in rows if att.AWAITING_MARK in (r.get("notes") or "")]
+    if not todo:
+        return 0, 0
+    print(f"\nChecking attachments for {len(todo)} row(s) tagged before their attachment was posted...")
+    att.ensure_text(todo, ATT_CACHE, API_BASE)
+    ready = [r for r in todo if not att.awaiting(r, ATT_CACHE)]
+    gone = [r for r in todo if not att.needs_attachment(r.get("raw_title", ""))]
+    for r in gone:   # Legistar title was completed; the mark no longer applies
+        r["notes"] = (r.get("notes") or "").replace(att.AWAITING_MARK, "").strip()
+    if not ready:
+        return len(gone), len(todo) - len(gone)
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    fixed = 0
+    for r in ready:
+        it = dict(r)
+        tag_item(client, it)
+        if it.get("tag_status") == "success" and (it.get("clean_title") or "").strip():
+            for k in ("clean_title", "topic_tags", "action_type_ai", "geography", "summary"):
+                r[k] = it.get(k, "")
+            r["notes"] = (r.get("notes") or "").replace(att.AWAITING_MARK, "").strip()
+            fixed += 1
+            print(f"    re-tagged from attachment: {r.get('file_number', '')}: {r['clean_title']}")
+        time.sleep(DELAY_BETWEEN_ITEMS)
+    return fixed + len(gone), len(todo) - fixed - len(gone)
+
+def attach_test(file_numbers):
+    """Fetch attachment text for the given file numbers and print the title and description
+    the model writes from it next to the current ones. Changes no files."""
+    with open(EXISTING_CSV, newline="", encoding="utf-8") as f:
+        rows = [r for r in csv.DictReader(f) if r["file_number"] in set(file_numbers)]
+    print(f"Attachment test: {len(rows)} of {len(file_numbers)} file numbers found in the CSV.")
+    cache = {}
+    for r in rows:
+        cache[str(r["matter_id"])] = att.fetch_one(API_BASE, r["matter_id"])
+        e = cache[str(r["matter_id"])]
+        print(f"  {r['file_number']}: {e['status']} {e.get('name', '')} {e.get('source', '')} "
+              f"{len(e.get('text', ''))} chars {e.get('error', '')}")
+        if e.get("text"):
+            print("    text start: " + re.sub(r"\s+", " ", e["text"])[:400])
+    ATT_CACHE.clear(); ATT_CACHE.update(cache)
+    if ANTHROPIC_API_KEY in ("", "YOUR_API_KEY_HERE"):
+        print("ANTHROPIC_API_KEY not set; skipping the title test.")
+        return
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    results, tin, tout = tag_batch(client, rows)
+    for j, r in enumerate(rows):
+        p = next((x for x in results if isinstance(x, dict) and x.get("i") == j), {})
+        print(f"\n  {r['file_number']}\n    current t: {r['clean_title']}\n    current s: {r['summary']}"
+              f"\n    new t:     {p.get('t', p.get('error', ''))}\n    new s:     {p.get('s', '')}")
+    cost = tin / 1_000_000 * HAIKU_INPUT_COST + tout / 1_000_000 * HAIKU_OUTPUT_COST
+    print(f"\nTokens in {tin}, out {tout}; cost ${cost:.4f} for {len(rows)} items "
+          f"(${cost / max(len(rows), 1):.4f} per item).")
 RETAG_LIMIT = 60   # untagged rows retried per run
 
 def retag_untagged(rows):
@@ -964,7 +1035,13 @@ def main():
                     help=f"also pull matters modified in the last N days (default {MODIFIED_LOOKBACK_DAYS})")
     ap.add_argument("--dry-run", action="store_true",
                     help="fetch and compare only; write nothing except the sync_*.csv reports")
+    ap.add_argument("--attach-test", default="",
+                    help="comma-separated file numbers: fetch attachment text, print new titles, change nothing")
     args = ap.parse_args()
+
+    if args.attach_test:
+        attach_test([x.strip() for x in args.attach_test.split(",") if x.strip()])
+        return
 
     today = datetime.today()
     cutoff = today - timedelta(days=LOOKBACK_DAYS)
@@ -1093,6 +1170,11 @@ def main():
                   "Status refreshes are still saved.")
             new_matters = []
         else:
+            ATT_CACHE.update(att.load_cache())
+            stubs = [m for m in new_matters if att.needs_attachment(m.get("raw_title", ""))]
+            if stubs:
+                print(f"\nFetching attachment text for {len(stubs)} new item(s) whose title stops short...")
+                att.ensure_text(stubs, ATT_CACHE, API_BASE)
             total_input_tokens, total_output_tokens = tag_new_items(new_matters)
             ok_new = [m for m in new_matters if m.get("tag_status") == "success"]
             print(f"\n{len(ok_new)}/{len(new_matters)} new items tagged successfully.")
@@ -1103,6 +1185,16 @@ def main():
         retagged, still_untagged = retag_untagged(existing_rows + new_matters)
         if retagged:
             changed = True
+        if not ATT_CACHE:
+            ATT_CACHE.update(att.load_cache())
+        n_cache = len(ATT_CACHE)
+        fixed_att, waiting_att = retag_awaiting(existing_rows + new_matters)
+        if fixed_att:
+            changed = True
+        if waiting_att:
+            print(f"{waiting_att} row(s) still await attachment text; checked again on the next run.")
+        if ATT_CACHE and (len(ATT_CACHE) != n_cache or fixed_att or new_matters):
+            att.save_cache(ATT_CACHE)
         if still_untagged:
             print(f"{still_untagged} row(s) are still untagged; they are retried on the next run.")
 
