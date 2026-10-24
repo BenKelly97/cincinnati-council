@@ -232,9 +232,10 @@ GEO_STR   = ",".join(GEOGRAPHY_TAGS)
 
 BATCH_SIZE = 15  # items per API call
 
-# Haiku 4.5 pricing (per million tokens)
-HAIKU_INPUT_COST  = 1.00   # $1.00 per million input tokens
-HAIKU_OUTPUT_COST = 5.00   # $5.00 per million output tokens
+# Model for tagging and writing titles, with its pricing (dollars per million tokens)
+TAG_MODEL = "claude-sonnet-5-5"
+TAG_INPUT_COST  = 2.00
+TAG_OUTPUT_COST = 10.00
 
 # Writing rules for the title ("t") and description ("s"). Used by tag_batch for
 # new items and by rewrite_text.py for the one-time rewrite of existing items.
@@ -246,6 +247,7 @@ STYLE_RULES = """Writing rules for "t" (title) and "s" (description):
 - t (title): at most 12 words and no ending period. For an action, start with the verb ("Authorize the transfer of $200,000 for special events"); for a presentation, report or communication, use a noun phrase ("Report on the Paul Clock Bell Tower").
 - s (description): one complete sentence of at most 30 words, present tense, ending with a period ("Authorizes the City Manager to...", "Asks the Administration to..."). Say what the item does and give the key amount, place, organization or person.
 - Spell out abbreviations: "Ordinance No. 36-2025", not "Ord. 36-2025"; "fiscal year 2028", not "FY 2028". Keep addresses and file numbers as written.
+- Numbers: write every number as figures, never as words: "0.30%", "61 percent", "$200,000", "fiscal years 2028 and 2029", "Ordinance No. 36-2025", "30 days". This applies to the title as well.
 - Keep the names of agreements, laws and organizations accurate. To shorten, leave words out; never merge two names into one.
 - Use only facts in the item text; do not guess. Say "Legislative Agent", never "lobbyist".
 - When an item includes [ATTACHED TEXT ...], it is the full text the title stops short of. Base t and s on what it asks for or does. Ignore letterheads, addresses, phone numbers, email addresses and signatures, and leave out any words or figures garbled by scanning.
@@ -254,7 +256,11 @@ Example of the change wanted:
   wrong t: Street repairs contract Westwood Price Hill.
   wrong s: Authorize $2.1M contract for paving, sidewalk repair, curb replacement in Westwood, Price Hill
   right t: Authorize a $2.1 million street repair contract for Westwood and Price Hill
-  right s: Authorizes a $2.1 million contract for paving, sidewalk repair and curb replacement in Westwood and Price Hill."""
+  right s: Authorizes a $2.1 million contract for paving, sidewalk repair and curb replacement in Westwood and Price Hill.
+  wrong t: Request administration presentation on STARS crime reporting spike
+  right t: Request a presentation from the Administration on the rise in reported rapes
+  wrong s: Requires the program be funded at least zero point three percent of General Fund Budget in fiscal years twenty twenty-eight.
+  right s: Asks for an ordinance funding the Access to Counsel Program at no less than 0.30% of the General Fund budget in fiscal years 2028 and 2029."""
 
 def tag_batch(client, items):
     """Tag multiple items in a single API call. Returns (results, input_tokens, output_tokens)."""
@@ -275,7 +281,7 @@ JSON array only, no markdown."""
 
     try:
         resp = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=TAG_MODEL,
             max_tokens=3000,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -873,7 +879,7 @@ def tag_new_items(items):
         results, in_tok, out_tok = tag_batch(client, batch)
         total_input_tokens += in_tok
         total_output_tokens += out_tok
-        cost_so_far = (total_input_tokens/1_000_000*HAIKU_INPUT_COST) + (total_output_tokens/1_000_000*HAIKU_OUTPUT_COST)
+        cost_so_far = (total_input_tokens/1_000_000*TAG_INPUT_COST) + (total_output_tokens/1_000_000*TAG_OUTPUT_COST)
         print(f" ${cost_so_far:.3f} spent so far")
         for j, item in enumerate(batch):
             p = next((r for r in results if isinstance(r, dict) and r.get("i") == j), None) if isinstance(results, list) else None
@@ -974,7 +980,7 @@ def attach_test(file_numbers):
         p = next((x for x in results if isinstance(x, dict) and x.get("i") == j), {})
         print(f"\n  {r['file_number']}\n    current t: {r['clean_title']}\n    current s: {r['summary']}"
               f"\n    new t:     {p.get('t', p.get('error', ''))}\n    new s:     {p.get('s', '')}")
-    cost = tin / 1_000_000 * HAIKU_INPUT_COST + tout / 1_000_000 * HAIKU_OUTPUT_COST
+    cost = tin / 1_000_000 * TAG_INPUT_COST + tout / 1_000_000 * TAG_OUTPUT_COST
     print(f"\nTokens in {tin}, out {tout}; cost ${cost:.4f} for {len(rows)} items "
           f"(${cost / max(len(rows), 1):.4f} per item).")
 RETAG_LIMIT = 60   # untagged rows retried per run
@@ -1240,7 +1246,7 @@ def main():
 
     # Print tagging cost if any tagging happened
     if total_input_tokens or total_output_tokens:
-        actual_cost = (total_input_tokens/1_000_000*HAIKU_INPUT_COST) + (total_output_tokens/1_000_000*HAIKU_OUTPUT_COST)
+        actual_cost = (total_input_tokens/1_000_000*TAG_INPUT_COST) + (total_output_tokens/1_000_000*TAG_OUTPUT_COST)
         print(f"Tagging cost this run: ${actual_cost:.3f} ({total_input_tokens:,} input tokens, {total_output_tokens:,} output tokens)")
 
     # Load vote data
