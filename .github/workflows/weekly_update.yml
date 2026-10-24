@@ -11,6 +11,10 @@ on:
         description: 'Compare every matter since 2018 with Legistar (slower; use after gaps are found)'
         type: boolean
         default: false
+      attach_test:
+        description: 'Test only: comma-separated file numbers to fetch attachment text for and print new titles (changes nothing)'
+        type: string
+        default: ''
 
 jobs:
   update:
@@ -26,12 +30,22 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests anthropic beautifulsoup4
+        run: |
+          pip install requests anthropic beautifulsoup4 pypdf
+          sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr poppler-utils
+
+      - name: Attachment test (changes nothing)
+        if: ${{ inputs.attach_test != '' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python3 update_pipeline.py --attach-test "${{ inputs.attach_test }}"
 
       - name: Scrape latest vote data
+        if: ${{ inputs.attach_test == '' || inputs.attach_test == null }}
         run: python3 scrape_votes_api.py
 
       - name: Run update pipeline
+        if: ${{ inputs.attach_test == '' || inputs.attach_test == null }}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
@@ -42,10 +56,12 @@ jobs:
           fi
 
       - name: Commit and push updated files
+        if: ${{ inputs.attach_test == '' || inputs.attach_test == null }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add council_data.json cincinnati_agenda_items_complete.csv votes_api.json title_overrides.json summary_overrides.json
+          if [ -f attachment_text.json ]; then git add attachment_text.json; fi
           for f in agenda.json agenda_index.json agenda_20*.json agents.json geocode_cache.json neighborhoods_sna2020.geojson; do if [ -f "$f" ]; then git add "$f"; fi; done
           git diff --staged --quiet || git commit -m "Data update $(date -u +'%Y-%m-%d %H:%M') UTC"
           git push
