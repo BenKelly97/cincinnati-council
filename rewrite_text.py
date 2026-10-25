@@ -74,21 +74,56 @@ def prompt_for(rows, cache):
 Return a JSON array, one object per item: {{"i":index,"t":"title","s":"description"}}
 {up.STYLE_RULES}
 Base the facts on the Legistar text; correct the current title or description where it disagrees.
-Hard limits: t at most 12 words, s at most 30 words. Count the words before answering; longer answers are rejected. To fit, keep the action, the amount and the main place or organization and leave out the rest.
+Hard limits: t at most 12 words, s at most 30 words; longer answers are rejected. To fit, keep the action, the amount and the main place or organization and leave out the rest.
 Items (index|type|requester|Legistar text|current title|current description):
 {chr(10).join(lines)}
 JSON array only, no markdown."""
 
 
-def call(client, model, rows, cache):
+def parse_items(raw):
+    """Return the JSON array of item objects in the reply, ignoring any text around it.
+    Tries each '[' in turn and keeps the first one that decodes to a list of objects
+    with an "i" key."""
+    dec = json.JSONDecoder()
+    for k in [m.start() for m in re.finditer(r"\[", raw)]:
+        try:
+            data, _ = dec.raw_decode(raw[k:])
+        except ValueError:
+            continue
+        if isinstance(data, list) and data and all(isinstance(d, dict) and "i" in d for d in data):
+            return data
+    raise ValueError("no JSON item array in reply: " + raw[:80].replace("\n", " "))
+
+
+def ask(client, model, prompt):
     resp = client.messages.create(model=model, max_tokens=4000,
-                                  messages=[{"role": "user", "content": prompt_for(rows, cache)}])
+                                  messages=[{"role": "user", "content": prompt}])
     if resp.stop_reason == "max_tokens":
         raise ValueError("response cut off at max_tokens")
-    raw = resp.content[0].text.strip()
-    k = raw.find("[")
-    data = json.loads(raw[k:raw.rfind("]") + 1] if k >= 0 else raw)
-    return data, resp.usage.input_tokens, resp.usage.output_tokens
+    return parse_items(resp.content[0].text), resp.usage.input_tokens, resp.usage.output_tokens
+
+
+def call(client, model, rows, cache):
+    return ask(client, model, prompt_for(rows, cache))
+
+
+def shorten_prompt(pairs):
+    """pairs: [(index, title, description)] that came back over the word limits."""
+    lines = "\n".join(f"{i}|{t}|{s}" for i, t, s in pairs)
+    return f"""Shorten each title to at most 12 words and each description to at most 30 words.
+Keep the facts, names and amounts that matter most; drop the rest. Keep the same style:
+articles where prose needs them, no comma before the final "and", numbers as figures,
+titles with no ending period, descriptions as one sentence ending with a period.
+Return a JSON array, one object per item: {{"i":index,"t":"title","s":"description"}}
+Items (index|title|description):
+{lines}
+JSON array only, no markdown."""
+
+
+def clean(d):
+    t = (d.get("t") or "").strip().rstrip(".").strip()   # titles take no ending period
+    s = (d.get("s") or "").strip()
+    return t, s
 
 
 def usable(t, s):
@@ -152,13 +187,22 @@ def main():
             tin, tout = tin + i_t, tout + o_t
         except Exception as e:
             print(f"  batch {b // BATCH + 1}: error ({e}); rows left unchanged")
-            kept += [(r["file_number"], "batch error") for r in chunk]
+            kept += [(r["file_number"], f"batch error: {str(e)[:60]}") for r in chunk]
             continue
-        got = {d.get("i"): d for d in data if isinstance(d, dict)}
+        got = {d.get("i"): clean(d) for d in data}
+        # One shortening pass for answers over the word limits.
+        long_ = [(i, *got[i]) for i in got if usable(*got[i]) in ("title too long", "description too long")]
+        if long_:
+            try:
+                data2, i_t, o_t = ask(client, model, shorten_prompt(long_))
+                tin, tout = tin + i_t, tout + o_t
+                for d in data2:
+                    if d.get("i") in got:
+                        got[d["i"]] = clean(d)
+            except Exception as e:
+                print(f"  batch {b // BATCH + 1}: shortening error ({e})")
         for i, r in enumerate(chunk):
-            d = got.get(i) or {}
-            t = (d.get("t") or "").strip().rstrip(".").strip()   # titles take no ending period
-            s = (d.get("s") or "").strip()
+            t, s = got.get(i, ("", ""))
             why = usable(t, s)
             if why:
                 kept.append((r["file_number"], why))
