@@ -40,15 +40,20 @@ MANUAL_FILES = {"202602776", "202602785"}
 TEST_FILES = ["202602937", "202602925", "202602905"]
 
 
-# Hard limits on output. The writing rules ask for 12 and 30 words; one and five
-# words of slack keep near misses. Longer output is rejected, and a rewritten row
-# whose text is over these limits is rewritten again on the next run.
-TITLE_MAX = 13
-DESC_MAX = 35
+# Word limits. The writing rules ask for 12 and 30 words. An answer over the soft
+# limits gets one request to shorten it. An answer still over the hard limits is
+# rejected, and a rewritten row over the hard limits is rewritten again next run.
+# (Titles that name an organization and an address often need 14 to 16 words.)
+TITLE_SOFT, DESC_SOFT = 13, 35
+TITLE_MAX, DESC_MAX = 16, 40
 
 
 def too_long(t, s):
     return len((t or "").split()) > TITLE_MAX or len((s or "").split()) > DESC_MAX
+
+
+def over_soft(t, s):
+    return len((t or "").split()) > TITLE_SOFT or len((s or "").split()) > DESC_SOFT
 
 
 def eligible(row):
@@ -191,13 +196,13 @@ def main():
             continue
         got = {d.get("i"): clean(d) for d in data}
         # One shortening pass for answers over the word limits.
-        long_ = [(i, *got[i]) for i in got if usable(*got[i]) in ("title too long", "description too long")]
+        long_ = [(i, *got[i]) for i in got if over_soft(*got[i])]
         if long_:
             try:
                 data2, i_t, o_t = ask(client, model, shorten_prompt(long_))
                 tin, tout = tin + i_t, tout + o_t
                 for d in data2:
-                    if d.get("i") in got:
+                    if d.get("i") in got and clean(d)[0] and clean(d)[1]:
                         got[d["i"]] = clean(d)
             except Exception as e:
                 print(f"  batch {b // BATCH + 1}: shortening error ({e})")
