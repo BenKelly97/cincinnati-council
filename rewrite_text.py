@@ -9,7 +9,8 @@ Run by .github/workflows/rewrite_text.yml.
 
 Skipped: registrations, statements and other untagged types; appointments with the
 fixed wording; rows with a manual title or description override; rows already done.
-A rewritten row gets REWRITE_MARK in its notes, so a later run skips it.
+A rewritten row gets REWRITE_MARK in its notes, so a later run skips it, unless its
+title or description is over TITLE_MAX or DESC_MAX words.
 """
 import argparse
 import csv
@@ -39,14 +40,27 @@ MANUAL_FILES = {"202602776", "202602785"}
 TEST_FILES = ["202602937", "202602925", "202602905"]
 
 
+# Hard limits on output. The writing rules ask for 12 and 30 words; one and five
+# words of slack keep near misses. Longer output is rejected, and a rewritten row
+# whose text is over these limits is rewritten again on the next run.
+TITLE_MAX = 13
+DESC_MAX = 35
+
+
+def too_long(t, s):
+    return len((t or "").split()) > TITLE_MAX or len((s or "").split()) > DESC_MAX
+
+
 def eligible(row):
+    """Rows not yet rewritten, plus rewritten rows whose text is over the limits."""
+    notes = row.get("notes") or ""
     return (row.get("tag_status") == "success"
             and row.get("matter_type") not in up.SKIP_TAG_TYPES
-            and up.APPOINTMENT_MARK not in (row.get("notes") or "")
-            and REWRITE_MARK not in (row.get("notes") or "")
+            and up.APPOINTMENT_MARK not in notes
             and row.get("file_number") not in MANUAL_FILES
             and (row.get("clean_title") or "").strip()
-            and (row.get("summary") or "").strip())
+            and (row.get("summary") or "").strip()
+            and (REWRITE_MARK not in notes or too_long(row["clean_title"], row["summary"])))
 
 
 def prompt_for(rows, cache):
@@ -60,6 +74,7 @@ def prompt_for(rows, cache):
 Return a JSON array, one object per item: {{"i":index,"t":"title","s":"description"}}
 {up.STYLE_RULES}
 Base the facts on the Legistar text; correct the current title or description where it disagrees.
+Hard limits: t at most 12 words, s at most 30 words. Count the words before answering; longer answers are rejected. To fit, keep the action, the amount and the main place or organization and leave out the rest.
 Items (index|type|requester|Legistar text|current title|current description):
 {chr(10).join(lines)}
 JSON array only, no markdown."""
@@ -82,9 +97,9 @@ def usable(t, s):
         return "empty"
     if re.search(r"[{}\[\]]", t + " " + s):
         return "stray bracket"
-    if len(t.split()) > 16:
+    if len(t.split()) > TITLE_MAX:
         return "title too long"
-    if len(s.split()) > 45:
+    if len(s.split()) > DESC_MAX:
         return "description too long"
     if re.search(r"lobbyist", t + " " + s, re.I):
         return "says lobbyist"
@@ -151,7 +166,8 @@ def main():
             pairs.append((r["file_number"], r["matter_type"], r["clean_title"], t, r["summary"], s))
             if not a.dry_run:
                 r["clean_title"], r["summary"] = t, s
-                r["notes"] = ((r.get("notes") or "") + " " + REWRITE_MARK).strip()
+                if REWRITE_MARK not in (r.get("notes") or ""):
+                    r["notes"] = ((r.get("notes") or "") + " " + REWRITE_MARK).strip()
             done += 1
         cost = tin / 1e6 * in_rate + tout / 1e6 * out_rate
         print(f"  batch {b // BATCH + 1}: {done} rewritten so far, ${cost:.3f}")
