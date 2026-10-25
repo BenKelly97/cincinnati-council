@@ -80,6 +80,8 @@ def usable(t, s):
     """Reject output that breaks the rules badly enough to keep the old text."""
     if not t or not s:
         return "empty"
+    if re.search(r"[{}\[\]]", t + " " + s):
+        return "stray bracket"
     if len(t.split()) > 16:
         return "title too long"
     if len(s.split()) > 45:
