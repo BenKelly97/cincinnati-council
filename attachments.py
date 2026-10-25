@@ -35,9 +35,10 @@ NONE_RETRY_DAYS = 30     # keep re-checking an item with no attachment for this 
 FETCH_LIMIT = 40         # attachments downloaded per run
 AWAITING_MARK = "[awaiting attachment]"
 
-# The title stops short and points to the attachment.
+# The title stops short and points to the attachment: "BALANCE ON FILE", "BALANCE OF
+# MOTION ON FILE", "BALANCE OF STATEMENT IS ON FILE" and similar, or "...as follows:".
 _STUB_RE = re.compile(
-    r"BALANCE\s+ON\s+FILE|(?:the\s+following|as\s+follows)\s*:\s*(?:\(|$)",
+    r"BALANCE\b[^()]{0,40}?\bON\s+FILE|(?:the\s+following|as\s+follows)\s*:\s*(?:\(|$)",
     re.IGNORECASE)
 # Attachment names that hold the legislative text itself, in order of preference.
 _MAIN_NAMES = [r"\bmotion\b", r"\bordinance\b", r"\bresolution\b", r"legislation"]

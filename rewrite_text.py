@@ -56,16 +56,33 @@ def over_soft(t, s):
     return len((t or "").split()) > TITLE_SOFT or len((s or "").split()) > DESC_SOFT
 
 
-def eligible(row):
-    """Rows not yet rewritten, plus rewritten rows whose text is over the limits."""
+# Matter ids rewritten without their attachment text because their Legistar title
+# ("BALANCE OF MOTION ON FILE" and similar) did not match the stub pattern before
+# 2026-10-25. Each is eligible again until its attachment has been fetched once.
+REDO_FILE = "rewrite_redo_ids.txt"
+
+
+def load_redo(path=REDO_FILE):
+    if not os.path.exists(path):
+        return set()
+    with open(path, encoding="utf-8") as f:
+        return {ln.strip() for ln in f if ln.strip() and not ln.startswith("#")}
+
+
+def eligible(row, cache=None, redo=frozenset()):
+    """Rows not yet rewritten, rewritten rows whose text is over the limits, and
+    listed rows whose attachment has not yet been fetched."""
     notes = row.get("notes") or ""
+    mid = str(row.get("matter_id", ""))
+    redo_due = mid in redo and cache is not None and mid not in cache
     return (row.get("tag_status") == "success"
             and row.get("matter_type") not in up.SKIP_TAG_TYPES
             and up.APPOINTMENT_MARK not in notes
             and row.get("file_number") not in MANUAL_FILES
             and (row.get("clean_title") or "").strip()
             and (row.get("summary") or "").strip()
-            and (REWRITE_MARK not in notes or too_long(row["clean_title"], row["summary"])))
+            and (REWRITE_MARK not in notes or too_long(row["clean_title"], row["summary"])
+                 or redo_due))
 
 
 def prompt_for(rows, cache):
@@ -159,7 +176,8 @@ def main():
 
     with open(up.OUTPUT_CSV, newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
-    todo = [r for r in rows if eligible(r)]
+    cache, redo = att.load_cache(), load_redo()
+    todo = [r for r in rows if eligible(r, cache, redo)]
     print(f"{len(todo)} rows eligible for rewrite.")
     if a.dry_run:
         fixed = [r for r in todo if r["file_number"] in TEST_FILES]
@@ -173,7 +191,6 @@ def main():
     print(f"Rewriting {len(todo)} rows{' (dry run)' if a.dry_run else ''}.")
 
     # Items whose Legistar title stops short get their attachment text first.
-    cache = att.load_cache()
     stubs = [r for r in todo if att.needs_attachment(r.get("raw_title", ""))]
     if stubs:
         print(f"{len(stubs)} rows need attachment text; fetching any not cached.")
@@ -225,7 +242,7 @@ def main():
 
     cost = tin / 1e6 * in_rate + tout / 1e6 * out_rate
     per = cost / len(todo) if todo else 0
-    eligible_left = sum(1 for r in rows if eligible(r))
+    eligible_left = sum(1 for r in rows if eligible(r, cache, redo))
     summary = [f"## Title and description rewrite, {a.model}{' (dry run, nothing saved)' if a.dry_run else ''}",
                f"Rewritten: {done}. Kept unchanged: {len(kept)}. "
                f"Tokens: {tin:,} in, {tout:,} out. Cost: ${cost:.4f} (${per:.5f} per row).",
