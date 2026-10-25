@@ -17,8 +17,8 @@ on:
       model:
         description: 'Model'
         type: choice
-        options: [haiku-4-5, sonnet-5-5]
-        default: haiku-4-5
+        options: [sonnet-5-5, haiku-4-5]
+        default: sonnet-5-5
 
 concurrency:
   group: rewrite-text
@@ -38,7 +38,9 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests anthropic beautifulsoup4
+        run: |
+          pip install requests anthropic beautifulsoup4 pypdf
+          sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr poppler-utils
 
       - name: Rewrite titles and descriptions
         env:
@@ -62,6 +64,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add council_data.json cincinnati_agenda_items_complete.csv title_overrides.json summary_overrides.json
+          if [ -f attachment_text.json ]; then git add attachment_text.json; fi
           for f in agenda.json agenda_index.json agenda_20*.json agents.json geocode_cache.json; do if [ -f "$f" ]; then git add "$f"; fi; done
           git diff --staged --quiet || git commit -m "Title and description rewrite $(date -u +'%Y-%m-%d %H:%M') UTC"
           git pull --rebase
