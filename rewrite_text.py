@@ -70,9 +70,9 @@ def load_redo(path=REDO_FILE):
 
 
 # Matter ids whose title lost a search term in the rewrite (for example "grant") with
-# the term missing from the description too, as of 2026-10-25. Each is rewritten once
-# with a request to keep the term where the item text supports it; KEEP_MARK in notes
-# records that the pass was made.
+# the term missing from the description too, as of 2026-10-25. Each gets one minimal
+# edit (keep_prompt) that puts the term back where the item text supports it;
+# KEEP_MARK in notes records that the pass was made.
 KEEP_FILE = "rewrite_keep_terms.txt"
 KEEP_MARK = "[keyword pass]"
 
@@ -107,14 +107,11 @@ def eligible(row, cache=None, redo=frozenset(), keep=None):
                  or redo_due or keep_due))
 
 
-def prompt_for(rows, cache, keep=None):
+def prompt_for(rows, cache):
     lines = []
     for i, r in enumerate(rows):
         item = dict(r, raw_title=re.sub(r"\s+", " ", r.get("raw_title") or "")[:RAW_MAX])
         raw = att.prompt_text(item, cache)
-        terms = (keep or {}).get(str(r.get("matter_id", "")))
-        if terms:
-            raw += " [KEEP TERM IF THE TEXT SUPPORTS IT: " + "; ".join(terms) + "]"
         lines.append(f"{i}|{r['matter_type']}|{r.get('requester', '')}|{raw}"
                      f"|{r['clean_title']}|{r['summary']}")
     return f"""Rewrite the title and description of each Cincinnati City Council item.
@@ -123,6 +120,28 @@ Return a JSON array, one object per item: {{"i":index,"t":"title","s":"descripti
 Base the facts on the Legistar text; correct the current title or description where it disagrees.
 Hard limits: t at most 12 words, s at most 30 words; longer answers are rejected. To fit, keep the action, the amount and the main place or organization and leave out the rest.
 Items (index|type|requester|Legistar text|current title|current description):
+{chr(10).join(lines)}
+JSON array only, no markdown."""
+
+
+def keep_prompt(rows, cache, keep):
+    """Minimal edit for the keyword pass: put the listed term back into the current
+    title or description and leave the rest of the wording as it is."""
+    lines = []
+    for i, r in enumerate(rows):
+        item = dict(r, raw_title=re.sub(r"\s+", " ", r.get("raw_title") or "")[:RAW_MAX])
+        raw = att.prompt_text(item, cache)
+        terms = "; ".join(keep.get(str(r.get("matter_id", "")), []))
+        lines.append(f"{i}|{terms}|{raw}|{r['clean_title']}|{r['summary']}")
+    return f"""Each Cincinnati City Council item below has a current title and description that left out a search term.
+Edit the current title or description, or both, so that the term appears in at least one of them, if the Legistar text supports it.
+Change as few words as possible. Keep every other word, fact, name and place, and keep amounts written as they are now ("$2 million", not "$2,000,000").
+If the Legistar text does not support the term, return the current title and description unchanged.
+Return a JSON array, one object per item: {{"i":index,"t":"title","s":"description"}}
+Style rules the result must still follow:
+{up.STYLE_RULES}
+Hard limits: t at most 12 words, s at most 30 words.
+Items (index|term|Legistar text|current title|current description):
 {chr(10).join(lines)}
 JSON array only, no markdown."""
 
@@ -151,7 +170,12 @@ def ask(client, model, prompt):
 
 
 def call(client, model, rows, cache, keep=None):
-    return ask(client, model, prompt_for(rows, cache, keep))
+    """Keyword-pass batches (every row listed in keep) get the minimal-edit prompt;
+    all other batches get the full rewrite prompt."""
+    keep = keep or {}
+    if keep and all(str(r.get("matter_id", "")) in keep for r in rows):
+        return ask(client, model, keep_prompt(rows, cache, keep))
+    return ask(client, model, prompt_for(rows, cache))
 
 
 def shorten_prompt(pairs):
@@ -227,8 +251,12 @@ def main():
     client = anthropic.Anthropic(api_key=up.ANTHROPIC_API_KEY)
     tin = tout = 0
     done, kept, pairs = 0, [], []
-    for b in range(0, len(todo), BATCH):
-        chunk = todo[b:b + BATCH]
+    # Keyword-pass rows and other rows go in separate batches (see call()).
+    listed = [r for r in todo if str(r.get("matter_id", "")) in keep]
+    others = [r for r in todo if str(r.get("matter_id", "")) not in keep]
+    batches = [g[k:k + BATCH] for g in (listed, others) for k in range(0, len(g), BATCH)]
+    for b, chunk in enumerate(batches):
+        b *= BATCH
         try:
             data, i_t, o_t = call(client, model, chunk, cache, keep)
             tin, tout = tin + i_t, tout + o_t

@@ -73,7 +73,6 @@
 47946|grant|\bgrants?\b
 48024|grant|\bgrants?\b
 48081|grant|\bgrants?\b
-48106|grant|\bgrants?\b
 48119|grant|\bgrants?\b
 48120|grant|\bgrants?\b
 48142|grant|\bgrants?\b
@@ -116,7 +115,6 @@
 50695|grant|\bgrants?\b
 51316|appropriation|appropriat
 51354|grant|\bgrants?\b
-51362|grant|\bgrants?\b
 51424|appropriation|appropriat
 51435|appropriation|appropriat
 51533|Capital Improvement Program|capital improvement program
@@ -134,7 +132,6 @@
 52796|grant|\bgrants?\b
 52858|grant|\bgrants?\b
 52956|appropriation|appropriat
-52962|grant|\bgrants?\b
 52963|Capital Improvement Program|capital improvement program
 52986|grant|\bgrants?\b
 52987|grant|\bgrants?\b
@@ -145,7 +142,5 @@
 53216|special event|special event
 53382|Capital Improvement Program|capital improvement program
 53477|grant|\bgrants?\b
-53523|grant|\bgrants?\b
-53525|grant|\bgrants?\b
 53616|appropriation|appropriat
 53640|Capital Improvement Program|capital improvement program
