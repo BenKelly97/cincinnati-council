@@ -118,11 +118,11 @@ def parse_items(raw):
 
 
 def ask(client, model, prompt):
-    resp = client.messages.create(model=model, max_tokens=4000,
+    resp = client.messages.create(model=model, max_tokens=8000,
                                   messages=[{"role": "user", "content": prompt}])
     if resp.stop_reason == "max_tokens":
         raise ValueError("response cut off at max_tokens")
-    return parse_items(resp.content[0].text), resp.usage.input_tokens, resp.usage.output_tokens
+    return parse_items(up.reply_text(resp)), resp.usage.input_tokens, resp.usage.output_tokens
 
 
 def call(client, model, rows, cache):

@@ -263,6 +263,13 @@ Example of the change wanted:
   wrong s: Requires the program be funded at least zero point three percent of General Fund Budget in fiscal years twenty twenty-eight.
   right s: Asks for an ordinance funding the Access to Counsel Program at no less than 0.30% of the General Fund budget in fiscal years 2028 and 2029."""
 
+def reply_text(resp):
+    """Text of a Messages API reply. The reply can start with a thinking block, so
+    the text blocks are joined rather than taking the first block."""
+    return "".join(getattr(b, "text", "") for b in resp.content
+                   if getattr(b, "type", "") == "text").strip()
+
+
 def tag_batch(client, items):
     """Tag multiple items in a single API call. Returns (results, input_tokens, output_tokens)."""
     lines = []
@@ -283,10 +290,10 @@ JSON array only, no markdown."""
     try:
         resp = client.messages.create(
             model=TAG_MODEL,
-            max_tokens=3000,
+            max_tokens=8000,
             messages=[{"role": "user", "content": prompt}]
         )
-        raw = resp.content[0].text.strip()
+        raw = reply_text(resp)
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"): raw = raw[4:]
