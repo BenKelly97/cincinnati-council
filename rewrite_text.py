@@ -69,12 +69,34 @@ def load_redo(path=REDO_FILE):
         return {ln.strip() for ln in f if ln.strip() and not ln.startswith("#")}
 
 
-def eligible(row, cache=None, redo=frozenset()):
-    """Rows not yet rewritten, rewritten rows whose text is over the limits, and
-    listed rows whose attachment has not yet been fetched."""
+# Matter ids whose title lost a search term in the rewrite (for example "grant") with
+# the term missing from the description too, as of 2026-10-25. Each is rewritten once
+# with a request to keep the term where the item text supports it; KEEP_MARK in notes
+# records that the pass was made.
+KEEP_FILE = "rewrite_keep_terms.txt"
+KEEP_MARK = "[keyword pass]"
+
+
+def load_keep(path=KEEP_FILE):
+    """{matter_id: [term, ...]} from lines "matter_id|term|pattern"."""
+    keep = {}
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            for ln in f:
+                if ln.strip() and not ln.startswith("#"):
+                    mid, term = ln.rstrip("\n").split("|")[:2]
+                    keep.setdefault(mid, []).append(term)
+    return keep
+
+
+def eligible(row, cache=None, redo=frozenset(), keep=None):
+    """Rows not yet rewritten, rewritten rows whose text is over the limits, listed
+    rows whose attachment has not yet been fetched, and listed rows not yet given
+    the keyword pass."""
     notes = row.get("notes") or ""
     mid = str(row.get("matter_id", ""))
     redo_due = mid in redo and cache is not None and mid not in cache
+    keep_due = bool(keep) and mid in keep and KEEP_MARK not in notes
     return (row.get("tag_status") == "success"
             and row.get("matter_type") not in up.SKIP_TAG_TYPES
             and up.APPOINTMENT_MARK not in notes
@@ -82,14 +104,17 @@ def eligible(row, cache=None, redo=frozenset()):
             and (row.get("clean_title") or "").strip()
             and (row.get("summary") or "").strip()
             and (REWRITE_MARK not in notes or too_long(row["clean_title"], row["summary"])
-                 or redo_due))
+                 or redo_due or keep_due))
 
 
-def prompt_for(rows, cache):
+def prompt_for(rows, cache, keep=None):
     lines = []
     for i, r in enumerate(rows):
         item = dict(r, raw_title=re.sub(r"\s+", " ", r.get("raw_title") or "")[:RAW_MAX])
         raw = att.prompt_text(item, cache)
+        terms = (keep or {}).get(str(r.get("matter_id", "")))
+        if terms:
+            raw += " [KEEP TERM IF THE TEXT SUPPORTS IT: " + "; ".join(terms) + "]"
         lines.append(f"{i}|{r['matter_type']}|{r.get('requester', '')}|{raw}"
                      f"|{r['clean_title']}|{r['summary']}")
     return f"""Rewrite the title and description of each Cincinnati City Council item.
@@ -125,8 +150,8 @@ def ask(client, model, prompt):
     return parse_items(up.reply_text(resp)), resp.usage.input_tokens, resp.usage.output_tokens
 
 
-def call(client, model, rows, cache):
-    return ask(client, model, prompt_for(rows, cache))
+def call(client, model, rows, cache, keep=None):
+    return ask(client, model, prompt_for(rows, cache, keep))
 
 
 def shorten_prompt(pairs):
@@ -176,8 +201,8 @@ def main():
 
     with open(up.OUTPUT_CSV, newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
-    cache, redo = att.load_cache(), load_redo()
-    todo = [r for r in rows if eligible(r, cache, redo)]
+    cache, redo, keep = att.load_cache(), load_redo(), load_keep()
+    todo = [r for r in rows if eligible(r, cache, redo, keep)]
     print(f"{len(todo)} rows eligible for rewrite.")
     if a.dry_run:
         fixed = [r for r in todo if r["file_number"] in TEST_FILES]
@@ -205,7 +230,7 @@ def main():
     for b in range(0, len(todo), BATCH):
         chunk = todo[b:b + BATCH]
         try:
-            data, i_t, o_t = call(client, model, chunk, cache)
+            data, i_t, o_t = call(client, model, chunk, cache, keep)
             tin, tout = tin + i_t, tout + o_t
         except Exception as e:
             print(f"  batch {b // BATCH + 1}: error ({e}); rows left unchanged")
@@ -234,15 +259,16 @@ def main():
             pairs.append((r["file_number"], r["matter_type"], r["clean_title"], t, r["summary"], s))
             if not a.dry_run:
                 r["clean_title"], r["summary"] = t, s
-                if REWRITE_MARK not in (r.get("notes") or ""):
-                    r["notes"] = ((r.get("notes") or "") + " " + REWRITE_MARK).strip()
+                for mark in (REWRITE_MARK, KEEP_MARK if str(r.get("matter_id", "")) in keep else None):
+                    if mark and mark not in (r.get("notes") or ""):
+                        r["notes"] = ((r.get("notes") or "") + " " + mark).strip()
             done += 1
         cost = tin / 1e6 * in_rate + tout / 1e6 * out_rate
         print(f"  batch {b // BATCH + 1}: {done} rewritten so far, ${cost:.3f}")
 
     cost = tin / 1e6 * in_rate + tout / 1e6 * out_rate
     per = cost / len(todo) if todo else 0
-    eligible_left = sum(1 for r in rows if eligible(r, cache, redo))
+    eligible_left = sum(1 for r in rows if eligible(r, cache, redo, keep))
     summary = [f"## Title and description rewrite, {a.model}{' (dry run, nothing saved)' if a.dry_run else ''}",
                f"Rewritten: {done}. Kept unchanged: {len(kept)}. "
                f"Tokens: {tin:,} in, {tout:,} out. Cost: ${cost:.4f} (${per:.5f} per row).",

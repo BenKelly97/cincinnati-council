@@ -245,6 +245,7 @@ STYLE_RULES = """Writing rules for "t" (title) and "s" (description):
 - Lists: no comma before the final "and" ("A, B and C").
 - Capitalization: keep proper names capitalized as in the item text ("Human Service Fund", "Cincinnati Police Department"). Capitalize "City" when it means the City of Cincinnati. Do not capitalize ordinary terms such as "operating budget" or "capital budget".
 - Motions: describe what the motion asks for ("Asks the Administration to...", "Asks Council to..."), never "Moves to...".
+- Keep the term that names the kind of item when the item text uses it, in t or s: "grant", "appropriation", "Capital Improvement Program", "tax exemption", "special event", "liquor permit", and report names such as "Budget Status Report". People search for these words.
 - t (title): at most 12 words and no ending period. For an action, start with the verb ("Authorize the transfer of $200,000 for special events"); for a presentation, report or communication, use a noun phrase ("Report on the Paul Clock Bell Tower").
 - s (description): one complete sentence of at most 30 words, present tense, ending with a period ("Authorizes the City Manager to...", "Asks the Administration to..."). Say what the item does and give the key amount, place, organization or person.
 - Spell out abbreviations: "Ordinance No. 36-2025", not "Ord. 36-2025"; "fiscal year 2028", not "FY 2028". Keep addresses and file numbers as written.

@@ -1,0 +1,151 @@
+# matter_id|term|pattern: rewrite_text.py rewrites each listed row once (KEEP_MARK in notes), asking it to keep the term where the item text supports it.
+2738|liquor permit|liquor permit
+3368|grant|\bgrants?\b
+3811|special event|special event
+4292|grant|\bgrants?\b
+4303|tax exemption|tax exemption
+5854|tax exemption|tax exemption
+8179|grant|\bgrants?\b
+8599|grant|\bgrants?\b
+8601|grant|\bgrants?\b
+8751|Capital Improvement Program|capital improvement program
+9021|grant|\bgrants?\b
+9048|grant|\bgrants?\b
+9086|grant|\bgrants?\b
+9090|grant|\bgrants?\b
+9129|grant|\bgrants?\b
+9160|grant|\bgrants?\b
+9193|grant|\bgrants?\b
+9205|grant|\bgrants?\b
+9237|grant|\bgrants?\b
+33921|tax exemption|tax exemption
+33993|appropriation|appropriat
+33994|appropriation|appropriat
+36905|Capital Improvement Program|capital improvement program
+44711|tax exemption|tax exemption
+46391|grant|\bgrants?\b
+46470|grant|\bgrants?\b
+46555|grant|\bgrants?\b
+46729|tax exemption|tax exemption
+46895|tax exemption|tax exemption
+46897|tax exemption|tax exemption
+46898|tax exemption|tax exemption
+46939|grant|\bgrants?\b
+47384|grant|\bgrants?\b
+47386|grant|\bgrants?\b
+47450|grant|\bgrants?\b
+47497|grant|\bgrants?\b
+47526|grant|\bgrants?\b
+47534|grant|\bgrants?\b
+47626|grant|\bgrants?\b
+47627|grant|\bgrants?\b
+47628|grant|\bgrants?\b
+47630|grant|\bgrants?\b
+47631|grant|\bgrants?\b
+47634|appropriation|appropriat
+47645|grant|\bgrants?\b
+47688|grant|\bgrants?\b
+47693|grant|\bgrants?\b
+47707|Capital Improvement Program|capital improvement program
+47732|grant|\bgrants?\b
+47733|grant|\bgrants?\b
+47744|grant|\bgrants?\b
+47745|grant|\bgrants?\b
+47747|grant|\bgrants?\b
+47748|appropriation|appropriat
+47753|grant|\bgrants?\b
+47753|appropriation|appropriat
+47754|grant|\bgrants?\b
+47757|grant|\bgrants?\b
+47759|grant|\bgrants?\b
+47766|grant|\bgrants?\b
+47767|grant|\bgrants?\b
+47862|grant|\bgrants?\b
+47864|grant|\bgrants?\b
+47865|grant|\bgrants?\b
+47868|grant|\bgrants?\b
+47869|grant|\bgrants?\b
+47935|grant|\bgrants?\b
+47937|grant|\bgrants?\b
+47940|grant|\bgrants?\b
+47944|grant|\bgrants?\b
+47945|grant|\bgrants?\b
+47946|grant|\bgrants?\b
+48024|grant|\bgrants?\b
+48081|grant|\bgrants?\b
+48106|grant|\bgrants?\b
+48119|grant|\bgrants?\b
+48120|grant|\bgrants?\b
+48142|grant|\bgrants?\b
+48208|grant|\bgrants?\b
+48245|grant|\bgrants?\b
+48287|grant|\bgrants?\b
+48348|grant|\bgrants?\b
+48369|grant|\bgrants?\b
+48454|grant|\bgrants?\b
+48486|appropriation|appropriat
+48493|Capital Improvement Program|capital improvement program
+48496|Capital Improvement Program|capital improvement program
+48498|appropriation|appropriat
+48537|grant|\bgrants?\b
+48571|tax exemption|tax exemption
+48788|Capital Improvement Program|capital improvement program
+49007|Capital Improvement Program|capital improvement program
+49097|grant|\bgrants?\b
+49562|appropriation|appropriat
+49687|appropriation|appropriat
+49688|appropriation|appropriat
+49754|appropriation|appropriat
+49763|appropriation|appropriat
+49780|Capital Improvement Program|capital improvement program
+49782|Capital Improvement Program|capital improvement program
+49850|appropriation|appropriat
+49850|Capital Improvement Program|capital improvement program
+49993|grant|\bgrants?\b
+49994|grant|\bgrants?\b
+50199|grant|\bgrants?\b
+50202|grant|\bgrants?\b
+50238|grant|\bgrants?\b
+50352|appropriation|appropriat
+50353|appropriation|appropriat
+50375|Capital Improvement Program|capital improvement program
+50376|appropriation|appropriat
+50497|grant|\bgrants?\b
+50504|appropriation|appropriat
+50505|appropriation|appropriat
+50695|grant|\bgrants?\b
+51316|appropriation|appropriat
+51354|grant|\bgrants?\b
+51362|grant|\bgrants?\b
+51424|appropriation|appropriat
+51435|appropriation|appropriat
+51533|Capital Improvement Program|capital improvement program
+51541|grant|\bgrants?\b
+51546|grant|\bgrants?\b
+51843|grant|\bgrants?\b
+51847|grant|\bgrants?\b
+51963|appropriation|appropriat
+51998|Capital Improvement Program|capital improvement program
+52033|Capital Improvement Program|capital improvement program
+52090|appropriation|appropriat
+52101|appropriation|appropriat
+52624|grant|\bgrants?\b
+52794|Budget Status Report|budget status report
+52796|grant|\bgrants?\b
+52858|grant|\bgrants?\b
+52956|appropriation|appropriat
+52962|grant|\bgrants?\b
+52963|Capital Improvement Program|capital improvement program
+52986|grant|\bgrants?\b
+52987|grant|\bgrants?\b
+52996|appropriation|appropriat
+52997|appropriation|appropriat
+52999|appropriation|appropriat
+53099|Capital Improvement Program|capital improvement program
+53216|special event|special event
+53382|Capital Improvement Program|capital improvement program
+53477|grant|\bgrants?\b
+53523|grant|\bgrants?\b
+53525|grant|\bgrants?\b
+53616|appropriation|appropriat
+53640|Capital Improvement Program|capital improvement program
