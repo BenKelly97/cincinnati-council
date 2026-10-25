@@ -136,6 +136,9 @@ def keep_prompt(rows, cache, keep):
     return f"""Each Cincinnati City Council item below has a current title and description that left out a search term.
 Edit the current title or description, or both, so that the term appears in at least one of them, if the Legistar text supports it.
 Change as few words as possible. Keep every other word, fact, name and place, and keep amounts written as they are now ("$2 million", not "$2,000,000").
+The edited text must read naturally. Put the term where it fits the sentence, often the description, and a form of the word is enough ("appropriates" for "appropriation", "grants" for "grant"). Do not attach the term as a label.
+Wrong: "Accept a $10.9 million Community Development Block Grant appropriation". Right: keep the title and write "Accepts and appropriates $10,925,956 from HUD's..." in the description.
+Wrong: "Apply for a Block Grant Community Energy Fellow". Right: keep the title as it is and add the grant to the description only if the Legistar text names one.
 If the Legistar text does not support the term, return the current title and description unchanged.
 Return a JSON array, one object per item: {{"i":index,"t":"title","s":"description"}}
 Style rules the result must still follow:
