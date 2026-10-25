@@ -5,7 +5,7 @@ Run by .github/workflows/rewrite_text.yml.
 
   python3 rewrite_text.py --limit 30 --dry-run   test: a fixed random sample, nothing saved
   python3 rewrite_text.py --limit 0               all remaining rows, saved to the CSV
-  --model haiku-4-5 (default) or sonnet-5-5
+  --model sonnet-5-5 (default) or haiku-4-5
 
 Skipped: registrations, statements and other untagged types; appointments with the
 fixed wording; rows with a manual title or description override; rows already done.
@@ -20,11 +20,12 @@ import re
 
 import anthropic
 
+import attachments as att
 import update_pipeline as up
 
 REWRITE_MARK = "[style rewrite]"
 BATCH = 15
-RAW_MAX = 1500          # characters of the Legistar title sent per item
+RAW_MAX = 4000          # characters of the Legistar title sent per item
 # Model choice: (API model id, $ per million input tokens, $ per million output tokens).
 # Sonnet 5.5 rates are from a third-party listing; the run reports measured cost either way.
 MODELS = {
@@ -48,10 +49,11 @@ def eligible(row):
             and (row.get("summary") or "").strip())
 
 
-def prompt_for(rows):
+def prompt_for(rows, cache):
     lines = []
     for i, r in enumerate(rows):
-        raw = re.sub(r"\s+", " ", r.get("raw_title") or "")[:RAW_MAX]
+        item = dict(r, raw_title=re.sub(r"\s+", " ", r.get("raw_title") or "")[:RAW_MAX])
+        raw = att.prompt_text(item, cache)
         lines.append(f"{i}|{r['matter_type']}|{r.get('requester', '')}|{raw}"
                      f"|{r['clean_title']}|{r['summary']}")
     return f"""Rewrite the title and description of each Cincinnati City Council item.
@@ -63,9 +65,9 @@ Items (index|type|requester|Legistar text|current title|current description):
 JSON array only, no markdown."""
 
 
-def call(client, model, rows):
-    resp = client.messages.create(model=model, max_tokens=3000,
-                                  messages=[{"role": "user", "content": prompt_for(rows)}])
+def call(client, model, rows, cache):
+    resp = client.messages.create(model=model, max_tokens=4000,
+                                  messages=[{"role": "user", "content": prompt_for(rows, cache)}])
     if resp.stop_reason == "max_tokens":
         raise ValueError("response cut off at max_tokens")
     raw = resp.content[0].text.strip()
@@ -95,7 +97,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=30, help="rows to rewrite; 0 = all remaining")
     ap.add_argument("--dry-run", action="store_true", help="print the results; do not save")
-    ap.add_argument("--model", choices=sorted(MODELS), default="haiku-4-5")
+    ap.add_argument("--model", choices=sorted(MODELS), default="sonnet-5-5")
     a = ap.parse_args()
 
     with open(up.OUTPUT_CSV, newline="", encoding="utf-8") as f:
@@ -113,6 +115,15 @@ def main():
             todo = todo[:a.limit]
     print(f"Rewriting {len(todo)} rows{' (dry run)' if a.dry_run else ''}.")
 
+    # Items whose Legistar title stops short get their attachment text first.
+    cache = att.load_cache()
+    stubs = [r for r in todo if att.needs_attachment(r.get("raw_title", ""))]
+    if stubs:
+        print(f"{len(stubs)} rows need attachment text; fetching any not cached.")
+        att.ensure_text(stubs, cache, up.API_BASE, limit=len(stubs))
+        if not a.dry_run:
+            att.save_cache(cache)
+
     model, in_rate, out_rate = MODELS[a.model]
     client = anthropic.Anthropic(api_key=up.ANTHROPIC_API_KEY)
     tin = tout = 0
@@ -120,7 +131,7 @@ def main():
     for b in range(0, len(todo), BATCH):
         chunk = todo[b:b + BATCH]
         try:
-            data, i_t, o_t = call(client, model, chunk)
+            data, i_t, o_t = call(client, model, chunk, cache)
             tin, tout = tin + i_t, tout + o_t
         except Exception as e:
             print(f"  batch {b // BATCH + 1}: error ({e}); rows left unchanged")
