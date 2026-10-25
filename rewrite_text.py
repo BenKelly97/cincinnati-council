@@ -205,6 +205,8 @@ def main():
             t, s = got.get(i, ("", ""))
             why = usable(t, s)
             if why:
+                if why in ("title too long", "description too long"):
+                    why += f": {len(t.split())}/{len(s.split())} words: {t} / {s}"
                 kept.append((r["file_number"], why))
                 continue
             pairs.append((r["file_number"], r["matter_type"], r["clean_title"], t, r["summary"], s))
@@ -225,7 +227,7 @@ def main():
                f"Eligible rows not yet rewritten after this run: {eligible_left:,}; "
                f"estimated cost for those at this rate: ${per * eligible_left:.2f}.", ""]
     if kept:
-        summary += ["Kept unchanged: " + ", ".join(f"{fn} ({w})" for fn, w in kept), ""]
+        summary += ["Kept unchanged:"] + [f"- {fn}: {md(w)}" for fn, w in kept] + [""]
     if a.dry_run or len(pairs) <= 200:
         summary += ["| File | Type | Old title | New title | Old description | New description |",
                     "|---|---|---|---|---|---|"]
