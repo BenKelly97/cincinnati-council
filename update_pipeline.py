@@ -220,10 +220,13 @@ def parse_page(xml_text):
 
 # ─── AI TAGGING ───────────────────────────────────────────────────────────────
 
-# Skip types that don't need AI tagging
-SKIP_TAG_TYPES = {'Registration', 'Registration-Update', 'Termination', 'Successor',
-                  'Statement', 'Oath of Office', 'FYI Memo', 'Memo', 'Notice',
-                  'Receipt', 'Request', 'Resignation'}
+# Filing types worded by filing_text() (see FILING WORDING) instead of the AI when
+# their Legistar title is in a recognized form; in any other form they go to the AI
+# like every other type. rewrite_text.py leaves these types alone. (Before
+# 2026-10-30 Notice, Memo, FYI Memo, Receipt, Request, Oath of Office, Resignation
+# and Termination items also skipped the AI and showed the first 80 characters of
+# the Legistar title.)
+SKIP_TAG_TYPES = {'Registration', 'Registration-Update', 'Statement', 'Successor'}
 
 # Compact tag lists for prompt (saves tokens)
 TOPIC_STR = ",".join(TOPIC_TAGS)
@@ -316,16 +319,31 @@ JSON array only, no markdown."""
     except Exception as e:
         return [{"i": i, "error": str(e)} for i in range(len(items))], 0, 0
 
+_FILING_NAMES = None
+
+def fixed_wording(item):
+    """Fill a filing in a recognized form (filing_text) without the AI and return True;
+    return False for every other item, which then goes to the AI."""
+    global _FILING_NAMES
+    mt = item['matter_type']
+    if mt not in SKIP_TAG_TYPES:
+        return False
+    if _FILING_NAMES is None:
+        _FILING_NAMES = load_filing_names()
+    res = filing_text(mt, item.get('raw_title', ''), _FILING_NAMES)
+    if not res:
+        return False
+    tags = (("financial statements", "statement") if mt in STATEMENT_TYPES
+            else ("registrations and terminations", "registration"))
+    item.update({"clean_title": res[0], "summary": res[1], "topic_tags": tags[0],
+                 "action_type_ai": tags[1], "geography": "", "tag_status": "success"})
+    if FILING_MARK not in (item.get("notes") or ""):
+        item["notes"] = ((item.get("notes") or "") + " " + FILING_MARK).strip()
+    return True
+
 def tag_item(client, item):
     """Tag a single item (used for fallback)."""
-    mt = item['matter_type']
-    if mt in REGISTRATION_TYPES:
-        item.update({"clean_title": item['raw_title'][:80], "topic_tags": "registrations and terminations",
-                     "action_type_ai": "registration", "geography": "", "summary": "", "tag_status": "success"})
-        return item
-    if mt in STATEMENT_TYPES:
-        item.update({"clean_title": item['raw_title'][:80], "topic_tags": "financial statements",
-                     "action_type_ai": "statement", "geography": "", "summary": "", "tag_status": "success"})
+    if fixed_wording(item):
         return item
 
     try:
@@ -861,24 +879,10 @@ def tag_new_items(items):
     total_output_tokens = 0
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-    to_tag = []
-    for item in items:
-        if item['matter_type'] in SKIP_TAG_TYPES:
-            mt = item['matter_type']
-            if mt in REGISTRATION_TYPES:
-                item.update({"clean_title": item['raw_title'][:80], "topic_tags": "registrations and terminations",
-                             "action_type_ai": "registration", "geography": "", "summary": "", "tag_status": "success"})
-            elif mt in STATEMENT_TYPES:
-                item.update({"clean_title": item['raw_title'][:80], "topic_tags": "financial statements",
-                             "action_type_ai": "statement", "geography": "", "summary": "", "tag_status": "success"})
-            else:
-                item.update({"clean_title": item['raw_title'][:80], "topic_tags": "elections and governance",
-                             "action_type_ai": "other", "geography": "", "summary": "", "tag_status": "success"})
-        else:
-            to_tag.append(item)
+    to_tag = [item for item in items if not fixed_wording(item)]
 
     skipped = len(items) - len(to_tag)
-    print(f"\nTagging {len(to_tag)} items with Claude (skipping {skipped} low-value types)...")
+    print(f"\nTagging {len(to_tag)} items with Claude ({skipped} filings worded from the Legistar title)...")
 
     total_batches = (len(to_tag) + BATCH_SIZE - 1) // BATCH_SIZE
     for batch_start in range(0, len(to_tag), BATCH_SIZE):
@@ -894,15 +898,9 @@ def tag_new_items(items):
             p = next((r for r in results if isinstance(r, dict) and r.get("i") == j), None) if isinstance(results, list) else None
             if p and "error" not in p:
                 topic_tags = "|".join(p.get("tp", [])).replace("energy and sustainability", "environment and sustainability")
-                mt = item['matter_type']
-                if mt in REGISTRATION_TYPES:
-                    topic_tags = "registrations and terminations"
-                    action_type = "registration"
-                elif mt in STATEMENT_TYPES:
-                    topic_tags = "financial statements"
-                    action_type = "statement"
-                else:
-                    action_type = p.get("a", "")
+                action_type = p.get("a", "")
+                if item['matter_type'] in ('Registration', 'Registration-Update'):
+                    topic_tags, action_type = "registrations and terminations", "registration"
                 item.update({
                     "clean_title":    p.get("t", ""),
                     "topic_tags":     topic_tags,
