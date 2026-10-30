@@ -63,4 +63,4 @@ Both `title_overrides.json` and `summary_overrides.json` are also fetched and me
 
 ## Deploying a change to any of this
 
-Commit the changed file(s) and push — same as always. `review.html` isn't linked from the public nav on purpose; bookmark `benkelly97.github.io/cincinnati-council/review.html` directly. It's unauthenticated beyond the password gate (client-side only, GitHub Pages can't do real server-side auth) — acceptable for now, but worth revisiting (e.g. Cloudflare Access in front of just that page) if the bar needs to be higher.
+Commit the changed file(s) and push — same as always. `review.html` isn't linked from the public nav on purpose; bookmark `bkkelly.com/council/review.html` directly. It's unauthenticated beyond the password gate (client-side only, GitHub Pages can't do real server-side auth) — acceptable for now, but worth revisiting (e.g. Cloudflare Access in front of just that page) if the bar needs to be higher.
