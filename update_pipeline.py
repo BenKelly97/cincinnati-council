@@ -1291,6 +1291,31 @@ def main():
     except Exception as e:
         print(f"Appointment wording skipped ({e}).")
 
+    # Registration, financial disclosure and successor wording from the Legistar
+    # title (see FILING WORDING). Also before the manual overrides.
+    try:
+        with open(OUTPUT_CSV, newline="", encoding="utf-8") as f:
+            filing_rows = list(csv.DictReader(f))
+        nm = load_filing_names()
+        reworded = kept = 0
+        for row in filing_rows:
+            if row.get("matter_type") in FILING_TYPES and FILING_MARK not in (row.get("notes") or ""):
+                res = filing_text(row["matter_type"], row.get("raw_title", ""), nm)
+                if res:
+                    row["clean_title"], row["summary"] = res
+                    row["notes"] = ((row.get("notes") or "") + " " + FILING_MARK).strip()
+                    reworded += 1
+                else:
+                    kept += 1
+        if reworded:
+            with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=FIELDNAMES, extrasaction="ignore")
+                writer.writeheader()
+                writer.writerows(filing_rows)
+        print(f"Filing wording applied to {reworded} row(s); {kept} in other forms keep their text.")
+    except Exception as e:
+        print(f"Filing wording skipped ({e}).")
+
     # Apply any pending manual title overrides (queued by the suggestion
     # review page) into the CSV so the fix survives this rebuild instead of
     # only living in council_data.json until the next run overwrites it.
@@ -1821,6 +1846,138 @@ def appointment_text(matter_type, raw_title):
         else:
             summary = f"{verb}s {name} to the {body}{term}."
         return title, summary
+    return None
+
+# ─── FILING WORDING ───────────────────────────────────────────────────────────
+# Legislative Agent registrations, financial disclosure statements and successor
+# designations are not sent to the AI. Their titles and descriptions are built
+# from the Legistar title in fixed forms:
+#   "Legislative Agent registration: <agent> for <client>" /
+#       "<agent> registers as a Legislative Agent for <client>."
+#   (update: "registration update" / "updates a Legislative Agent registration for";
+#    termination: "termination" / "ends a Legislative Agent registration for")
+#   "Financial disclosure statement: <name>" /
+#       "The Clerk of Council files the financial disclosure statement of <name>, <position>."
+#   "Successor designation certificate for <name>" and similar.
+# Agent and client names use the same parsing and merges as the Legislative
+# Agents page. Applied once per row (marked in notes) before the manual overrides,
+# so a later manual fix wins and is kept. Titles in other forms keep their text.
+
+FILING_MARK = "[filing wording]"
+FILING_TYPES = {"Registration", "Registration-Update", "Statement", "Successor"}
+_FDS = re.compile(r"(?:formally\s+filing\s+a\s+copy\s+of\s+the\s+(?:Financial\s+Disclosure\s+Statement\s*(?:for\s+)?)?"
+                  r"|^STATEMENT,\s+submitted\s+by\s+the\s+Clerk\s+of\s+Council\s+from\s+)(?P<who>.+)$", re.I)
+_ADDRESS = re.compile(r"^(?:\d|c/o\b|P\.?\s?O\.?\s+Box|Suite\b|One\s+[A-Z]\w+\s+(?:Street|Square|Plaza))", re.I)
+_FDS_TAG = re.compile(r"\s*\((ETHICS|CITY)\)\s*\.?\s*$", re.I)
+
+def _join_names(names):
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
+def load_filing_names():
+    """Agent and organization merges shared with write_agents()."""
+    with open(AGENT_ALIASES_FILE, encoding="utf-8") as f:
+        aa = json.load(f)
+    with open(ORG_ALIASES_FILE, encoding="utf-8") as f:
+        oa = json.load(f)
+    return {"agent_alias": {v: k for k, vs in aa["names"].items() for v in vs},
+            "not_agents": set(aa.get("not_agents", [])),
+            "org_alias": {v: k for k, vs in oa["names"].items() for v in vs},
+            "org_names": set(oa["names"]),
+            "keep_upper": set(oa.get("keep_upper", [])), "fixes": oa.get("display", {})}
+
+def filing_role(t, agent):
+    """Role and employer as filed: the text after the agent's name up to the address."""
+    i = t.find(agent)
+    if i < 0:
+        return ""
+    out = []
+    for seg in t[i + len(agent):].split(","):
+        seg = seg.strip(" .")
+        if not seg:
+            continue
+        if _ADDRESS.match(seg) or seg.startswith("("):
+            break
+        if re.fullmatch(r"(?:Jr|Sr|I{2,3}|IV)", seg) and not out:
+            continue   # name suffix after a comma ("Charles H. Gerhardt, III")
+        if re.search(r"lobbyist", seg, re.I):
+            continue   # job titles filed as "Lobbyist": the site uses "Legislative Agent"
+        out.append(seg)
+    role = ", ".join(out)
+    return role if 0 < len(role) <= 100 else ""
+
+def registration_text(matter_type, raw_title, nm):
+    t = re.sub(r"\s+", " ", raw_title or "").strip()
+    agent = filing_agent(t)
+    role = filing_role(t, agent) if agent else ""
+    if not agent or agent in nm["not_agents"] or len(agent.split()) > 6 or re.search(r"\d", agent):
+        return None
+    agent = nm["agent_alias"].get(agent, agent)
+    clients, term = filing_clients(t)
+    names = []
+    for c in clients:   # entries the Agents page leaves out (not_orgs) are still named here
+        g = nm["org_alias"].get(org_key(c), org_key(c))
+        n = g if g in nm["org_names"] else org_display(c, nm["keep_upper"], nm["fixes"])
+        if n not in names:
+            names.append(n)
+    if term:
+        kind, verb = "termination", "ends a Legislative Agent registration"
+    elif matter_type == "Registration-Update" or re.search(r"\(UPDATE[D]?\)", t, re.I):
+        kind, verb = "registration update", "updates a Legislative Agent registration"
+    else:
+        kind, verb = "registration", "registers as a Legislative Agent"
+    if names:
+        who = _join_names(names)
+        return (f"Legislative Agent {kind}: {agent} for {who}", f"{agent} {verb} for {who}.")
+    if role:
+        return (f"Legislative Agent {kind}: {agent}", f"{agent}, {role}, {verb}.")
+    return (f"Legislative Agent {kind}: {agent}", f"{agent} {verb}; the filing names no client.")
+
+def statement_text(raw_title):
+    t = re.sub(r"\s+", " ", raw_title or "").strip()
+    m = _FDS.search(t)
+    if not m:
+        return None
+    who = m.group("who").strip()
+    tag = _FDS_TAG.search(who)
+    who = _FDS_TAG.sub("", who).strip().rstrip(".").strip()
+    who = re.sub(r"\s*\(([^()]*/[^()]*)\)", r"/\1", who)   # "Name (Dept/Title)" -> "Name/Dept/Title"
+    parts = [p.strip() for p in re.split(r"\s*/\s*|,\s+(?!Jr\b|Sr\b|I{2,3}\b|IV\b)", who) if p.strip()]
+    if not parts or len(parts[0].split()) > 6 or len(parts[0].split()) < 2:
+        return None
+    name, position = parts[0], ", ".join(parts[1:])
+    suffix = f" ({tag.group(1).title()} copy)" if tag else ""
+    title = f"Financial disclosure statement: {name}{suffix}"
+    summary = (f"The Clerk of Council files the financial disclosure statement of {name}"
+               + (f", {position}" if position else "") + ".")
+    return title, summary
+
+def successor_text(raw_title):
+    t = re.sub(r"\s+", " ", raw_title or "").strip()
+    upd = " (updated)" if re.match(r"SUCCESSOR\s*\(UPDATE", t, re.I) else ""
+    m = re.search(r"Certificates of all Councilmember-Elected for the (\S+) term", t, re.I)
+    if m:
+        return (f"Successor designation certificates for the {m.group(1)} Council term{upd}",
+                f"The Clerk of Council reports that successor designation certificates were received from all Councilmembers-elect for the {m.group(1)} term.")
+    m = re.search(r"Successor Designation Certificate for (.+?) was received", t, re.I)
+    if m:
+        return (f"Successor designation certificate for {m.group(1)}{upd}",
+                f"The Clerk of Council reports that the successor designation certificate for {m.group(1)} was received.")
+    m = re.search(r"SUCCESSOR DESIGNATION FORM, submitted by (?:the Clerk of Council from )?(.+?) pursuant", t, re.I)
+    if m:
+        return (f"Successor designation form from {m.group(1)}",
+                f"{m.group(1)} files a successor designation form under the City Charter.")
+    return None
+
+def filing_text(matter_type, raw_title, nm):
+    """(title, summary) for a filing, or None when the Legistar title is in another form."""
+    t = (raw_title or "").lstrip()
+    if matter_type in ("Registration", "Registration-Update") or (
+            matter_type == "Statement" and re.match(r"REGISTRATION\b", t, re.I)):
+        return registration_text(matter_type, t, nm)
+    if matter_type == "Statement":
+        return statement_text(t)
+    if matter_type == "Successor":
+        return successor_text(t)
     return None
 
 if __name__ == "__main__":
