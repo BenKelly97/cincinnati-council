@@ -2,6 +2,28 @@
 
 Notable changes to the Cincinnati City Council transparency site, most recent first. Each entry names the files touched and the live GitHub commit.
 
+## 2026-10-29 — Fixed wording for registrations, disclosure statements and successor filings
+
+**Problem.** Registration, Registration-Update, Statement and Successor items are not sent to the AI. The pipeline gave them the first 80 characters of the Legistar title and no description ("REGISTRATION, submitted by the Clerk of Council from Legislative Agent Ozie Davi"): 149 registrations, 274 statements and 1 successor filing. Older ones had AI wording from an earlier run, 25 of them saying "lobbyist".
+
+**Change (`update_pipeline.py`).** `filing_text()` builds the title and description from the Legistar title: "Legislative Agent registration: <agent> for <client>" / "<agent> registers as a Legislative Agent for <client>." (with "registration update" and "termination" forms); "Financial disclosure statement: <name>" with "(City copy)" or "(Ethics copy)" when Legistar marks the filing CITY or ETHICS / "The Clerk of Council files the financial disclosure statement of <name>, <position>."; and successor designation forms and certificates. Agent and client names use the parsing and merges of the Legislative Agents page; a filing with no client gives the agent's role and employer as filed; job titles filed as "Lobbyist" are left out. Applied once per row, marked "[filing wording]" in `notes`, before the manual overrides. 2,212 rows reworded; 37 in other forms (COVID-19 emergency orders and similar, which already had readable titles) keep their text. Five rows the rule cannot read were written by hand: 201800057, 201800060, 201800210, 201801298, 202602539.
+
+Tested on the full CSV before the commit ([69fe9dc](https://github.com/BenKelly97/council/commit/69fe9dcaa6bb3d06aeba96ee76874c8ab4e5ba63)). Data update [a852c1c](https://github.com/BenKelly97/council/commit/a852c1c02bc3a1e2ef0873287f422fa93ab56746): only titles, descriptions and notes changed for these types; `council_data.json` matches the CSV for all 13,138 rows; no title is a cut-off Legistar title; no title or description contains "lobbyist"; checked live. The Legislative Agents page has 214 organizations (Magnificent Morsels Kitchen added by the new filing).
+
+Files: `update_pipeline.py`, `cincinnati_agenda_items_complete.csv`, `council_data.json`.
+
+## 2026-10-29 — Site moved to bkkelly.com/council
+
+**Address.** The site moved from benkelly97.github.io/cincinnati-council to bkkelly.com/council. The domain bkkelly.com (registered at Namecheap) points at GitHub Pages: four A records for @ (185.199.108.153 to 185.199.111.153), a CNAME for www to benkelly97.github.io, and a TXT record that verifies the domain on the BenKelly97 account. A new repository, BenKelly97/benkelly97.github.io, serves bkkelly.com itself; every other Pages repository appears under it by name, so the council repository was renamed from `cincinnati-council` to `council`.
+
+**Code.** `review.html` uses the repository name for the GitHub API calls behind Apply and Dismiss: changed to `council` ([4297955](https://github.com/BenKelly97/council/commit/429795592971d76d9169e41201d3f9a92fb01220)); `SUGGESTION_BOX_SETUP.md` gives the new review address. Pages use relative links, so nothing else changed.
+
+**Old links.** After the rename, old addresses forwarded to bkkelly.com/cincinnati-council/, which did not exist. Two files in the home-page repository send them to the same page under /council/: `404.html` ([b64904c](https://github.com/BenKelly97/benkelly97.github.io/commit/b64904c)) and `cincinnati-council/index.html` ([b1995f0](https://github.com/BenKelly97/benkelly97.github.io/commit/b1995f0)). Checked in Chrome: the old main page and agenda.html open the new pages. This works in browsers only; a script downloading a data file from the old address gets "not found". Tarbell was switched to the new addresses on 2026-10-29.
+
+Checked at the new address: all pages, the vote chart, review.html and both data files load. HTTPS: the certificate was not issued overnight (GitHub's DNS check stayed "in progress"); on 2026-10-30 the custom domain was removed and added again in the home-page repository's Pages settings (commits bc9ea4b, 5149d03), the certificate was issued and "Enforce HTTPS" is on. Checked in Chrome: http://bkkelly.com/council/ goes to https://, and old github.io links reach the https pages.
+
+Files: `review.html`, `SUGGESTION_BOX_SETUP.md`; repository rename; new repository BenKelly97/benkelly97.github.io (`404.html`, `cincinnati-council/index.html`, `CNAME`).
+
 ## 2026-10-25 — Search terms restored in titles and descriptions
 
 **Writing rule (`update_pipeline.py`).** `STYLE_RULES` now asks the model to keep the term that names the kind of item when the item text uses it: "grant", "appropriation", "Capital Improvement Program", "tax exemption", "special event", "liquor permit", and report names such as "Budget Status Report". Applies to new items from the next weekly update.
